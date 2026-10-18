@@ -1,0 +1,1283 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Calculadora de línea base energética</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@500;600&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap">
+<style>
+/* Layout: herramienta por pasos (Datos → Periodo base → Modelos → Línea base → Seguimiento), una columna de 1120 px con barra de pasos fija. */
+:root {
+  --bg: #f2f5f4; --surface: #fbfcfc; --surface-2: #e8eeec; --ink: #13201e; --ink-2: #485654; --muted: #6f7d7a; --line: #d3dcd9;
+  --accent: #0d6872; --accent-hover: #0a555d; --accent-ink: #ffffff; --accent-soft: #d6ebeb;
+  --warn: #8a5300; --warn-bg: #fbefd8; --bad: #a8261e; --bad-bg: #f8e2df; --good: #17663a; --good-bg: #dff0e5;
+  --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; --grid: #e1e4e2; --axis: #b9c2bf; --band: rgba(42,120,214,.13); --shade: rgba(13,104,114,.07);
+  --f-display: "IBM Plex Sans Condensed", "Arial Narrow", system-ui, sans-serif;
+  --f-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Consolas, monospace;
+  --r: 6px;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0e1413; --surface: #151d1c; --surface-2: #1d2827; --ink: #edf3f1; --ink-2: #b6c2bf; --muted: #8b9894; --line: #2b3735;
+  --accent: #55b9c3; --accent-hover: #6fc7d0; --accent-ink: #052124; --accent-soft: #15383b;
+  --warn: #f1b552; --warn-bg: #33270f; --bad: #f19288; --bad-bg: #371916; --good: #79d394; --good-bg: #15301f;
+  --s1: #3987e5; --s2: #d95926; --s3: #199e70; --grid: #253130; --axis: #3a4745; --band: rgba(57,135,229,.2); --shade: rgba(85,185,195,.08);
+  color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --bg: #0e1413; --surface: #151d1c; --surface-2: #1d2827; --ink: #edf3f1; --ink-2: #b6c2bf; --muted: #8b9894; --line: #2b3735;
+  --accent: #55b9c3; --accent-hover: #6fc7d0; --accent-ink: #052124; --accent-soft: #15383b;
+  --warn: #f1b552; --warn-bg: #33270f; --bad: #f19288; --bad-bg: #371916; --good: #79d394; --good-bg: #15301f;
+  --s1: #3987e5; --s2: #d95926; --s3: #199e70; --grid: #253130; --axis: #3a4745; --band: rgba(57,135,229,.2); --shade: rgba(85,185,195,.08);
+  color-scheme: dark; }
+
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font: 15px/1.55 var(--f-body); }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--surface); }
+.wrap { max-width: 1120px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+h1, h2, h3 { font-family: var(--f-display); font-weight: 600; line-height: 1.15; text-wrap: balance; margin: 0; }
+h1 { font-size: clamp(1.7rem, 3.2vw, 2.35rem); letter-spacing: -0.01em; }
+h2 { font-size: 1.45rem; }
+h3 { font-size: 1.12rem; }
+p { margin: 0; max-width: 70ch; }
+.mono, .num { font-family: var(--f-mono); font-variant-numeric: tabular-nums; }
+.eyebrow { font: 500 .74rem/1.3 var(--f-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--accent); }
+.muted { color: var(--muted); }
+.small { font-size: .86rem; }
+a { color: var(--accent); }
+
+/* encabezado */
+header.top { background: var(--surface); border-bottom: 1px solid var(--line); }
+header.top .wrap { padding-block: 26px 22px; display: grid; gap: 10px; }
+.lead { color: var(--ink-2); max-width: 74ch; }
+.meta-row { display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center; margin-top: 6px; }
+.chip { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 999px; font: 500 .8rem/1.4 var(--f-body); background: var(--surface-2); color: var(--ink-2); }
+.chip.ok { background: var(--good-bg); color: var(--good); }
+.chip.warn { background: var(--warn-bg); color: var(--warn); }
+.chip.bad { background: var(--bad-bg); color: var(--bad); }
+.chip.info { background: var(--accent-soft); color: var(--accent); }
+
+/* barra de pasos */
+nav.steps { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: color-mix(in srgb, var(--bg) 92%, transparent); backdrop-filter: blur(6px); border-bottom: 1px solid var(--line); }
+nav.steps .wrap { display: flex; gap: 4px; overflow-x: auto; padding-block: 8px; scrollbar-width: none; }
+.step-btn { flex: 0 0 auto; display: flex; align-items: center; gap: 10px; border: 0; background: transparent; color: var(--ink-2); padding: 8px 14px 8px 8px; border-radius: var(--r); cursor: pointer; font: 500 .95rem/1.2 var(--f-body); }
+.step-btn .n { width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; font: 500 .8rem var(--f-mono); border: 1.5px solid var(--axis); color: var(--muted); }
+.step-btn small { display: block; font: 400 .74rem/1.2 var(--f-mono); color: var(--muted); letter-spacing: .02em; }
+.step-btn:hover { background: var(--surface-2); }
+.step-btn[aria-selected="true"] { background: var(--surface); color: var(--ink); box-shadow: 0 0 0 1px var(--line); }
+.step-btn[aria-selected="true"] .n { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.step-btn:focus-visible, button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-visible, .cal-cell:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+main .wrap { padding-block: 26px 48px; }
+.panel { display: grid; gap: 22px; }
+.panel-head { display: grid; gap: 6px; }
+.section { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 18px; display: grid; gap: 14px; min-width: 0; }
+.section > h3 + p { margin-top: -6px; }
+.grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 22px; }
+.row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+
+/* controles */
+button.btn { font: 500 .9rem/1.2 var(--f-body); border-radius: var(--r); padding: 9px 14px; cursor: pointer; border: 1px solid var(--line); background: var(--surface); color: var(--ink); }
+button.btn:hover { border-color: var(--accent); color: var(--accent); }
+button.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+button.btn.primary:hover { background: var(--accent-hover); color: var(--accent-ink); }
+button.btn.ghost { border-color: transparent; background: transparent; color: var(--accent); padding-inline: 8px; }
+button.btn:disabled { opacity: .5; cursor: not-allowed; }
+label.field { display: grid; gap: 4px; font-size: .84rem; color: var(--ink-2); }
+input[type="text"], select, textarea { font: 400 .95rem/1.4 var(--f-body); color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 8px 10px; min-width: 0; }
+textarea { font-family: var(--f-mono); font-size: .82rem; width: 100%; min-height: 170px; resize: vertical; }
+input[type="checkbox"], input[type="radio"] { accent-color: var(--accent); width: 16px; height: 16px; }
+.check { display: inline-flex; gap: 8px; align-items: center; padding: 6px 10px; border: 1px solid var(--line); border-radius: var(--r); cursor: pointer; font-size: .9rem; background: var(--surface); }
+.check:has(input:checked) { border-color: var(--accent); background: var(--accent-soft); }
+
+/* mensajes */
+.note { border-radius: var(--r); padding: 10px 12px; font-size: .9rem; display: grid; gap: 4px; }
+.note.info { background: var(--accent-soft); color: var(--ink); }
+.note.warn { background: var(--warn-bg); color: var(--ink); }
+.note.warn strong { color: var(--warn); }
+.note.bad { background: var(--bad-bg); color: var(--ink); }
+.note.bad strong { color: var(--bad); }
+.note.ok { background: var(--good-bg); color: var(--ink); }
+.note.ok strong { color: var(--good); }
+.note ul { margin: 0; padding-left: 18px; }
+
+/* tablas */
+.tbl-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: var(--r); max-width: 100%; }
+.tbl-wrap.tall { max-height: 420px; overflow-y: auto; }
+table { border-collapse: collapse; width: 100%; font-size: .86rem; }
+th, td { padding: 6px 10px; text-align: right; white-space: nowrap; border-bottom: 1px solid var(--line); }
+th { font: 500 .76rem/1.3 var(--f-body); color: var(--ink-2); background: var(--surface-2); position: sticky; top: 0; z-index: 1; }
+th:first-child, td:first-child { text-align: left; }
+td { font-family: var(--f-mono); font-variant-numeric: tabular-nums; }
+td.txt { font-family: var(--f-body); }
+tr.off td { color: var(--muted); }
+tr.excl td { color: var(--muted); text-decoration: line-through; }
+td .out, span.out { color: var(--bad); text-decoration: line-through; }
+td.hi { color: var(--accent); font-weight: 500; }
+td.pbad { color: var(--bad); font-weight: 500; }
+td.pok { color: var(--good); font-weight: 500; }
+tfoot td { font-weight: 500; background: var(--surface-2); }
+tr.cur td { background: var(--accent-soft); }
+td.wrapc { white-space: normal; min-width: 210px; }
+td.left { text-align: left; white-space: normal; min-width: 220px; }
+.tbl-tools { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+
+/* tarjetas de cifras */
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+.stat { border: 1px solid var(--line); border-radius: var(--r); padding: 10px 12px; display: grid; gap: 2px; background: var(--surface); }
+.stat b { font: 500 1.25rem/1.2 var(--f-mono); font-variant-numeric: tabular-nums; }
+.stat span { font-size: .78rem; color: var(--muted); }
+
+/* calendario del periodo base */
+.cal { display: grid; grid-template-columns: 54px repeat(12, minmax(54px, 1fr)); gap: 3px; min-width: 760px; }
+.cal .h { font: 500 .72rem var(--f-mono); color: var(--muted); text-transform: uppercase; text-align: center; padding: 2px 0; }
+.cal .y { font: 500 .8rem var(--f-mono); color: var(--ink-2); display: flex; align-items: center; }
+.cal-cell { border: 1px solid var(--line); background: var(--surface); border-radius: 4px; padding: 6px 4px; text-align: center; font: 400 .74rem/1.2 var(--f-mono); color: var(--ink); cursor: pointer; font-variant-numeric: tabular-nums; }
+.cal-cell.in { background: var(--accent-soft); border-color: color-mix(in srgb, var(--accent) 35%, var(--line)); }
+.cal-cell.ex { background: var(--bad-bg); border-color: var(--bad); color: var(--bad); text-decoration: line-through; }
+.cal-cell.empty { cursor: default; background: transparent; border-style: dashed; color: var(--muted); }
+.cal-cell.outp { color: var(--muted); }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: .8rem; color: var(--ink-2); align-items: center; }
+.legend i { display: inline-block; width: 14px; height: 10px; border-radius: 2px; vertical-align: -1px; margin-right: 6px; }
+.legend i.line { height: 3px; border-radius: 2px; vertical-align: 3px; }
+.legend i.dash { height: 0; border-top: 2px dashed; background: none !important; vertical-align: 3px; }
+
+/* gráficas */
+.chart { position: relative; width: 100%; min-width: 0; }
+.chart svg { display: block; width: 100%; height: auto; overflow: visible; }
+.chart text { fill: var(--muted); font: 11px var(--f-mono); }
+.tip { position: absolute; pointer-events: none; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 8px 10px; font-size: .8rem; line-height: 1.45; box-shadow: 0 6px 18px rgba(0,0,0,.12); z-index: 3; min-width: 170px; color: var(--ink); }
+.tip b { font-family: var(--f-mono); font-weight: 500; }
+
+/* subpestañas de modelos */
+.subtabs { display: flex; gap: 0; border-bottom: 1px solid var(--line); overflow-x: auto; }
+.subtab { border: 0; background: transparent; color: var(--ink-2); padding: 10px 16px; font: 500 .95rem var(--f-body); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; white-space: nowrap; }
+.subtab[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--accent); }
+.subtab small { color: var(--muted); font: 400 .72rem var(--f-mono); margin-left: 6px; }
+
+.equation { font: 500 1rem/1.6 var(--f-mono); background: var(--surface-2); border-radius: var(--r); padding: 12px 14px; overflow-wrap: anywhere; }
+.model-pick { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 10px; }
+.pick { border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; display: grid; gap: 6px; cursor: pointer; background: var(--surface); }
+.pick:has(input:checked) { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.pick .top { display: flex; gap: 8px; align-items: center; font-weight: 600; }
+.pick .kv { display: flex; justify-content: space-between; font-size: .84rem; color: var(--ink-2); }
+.pick .kv b { font: 500 .88rem var(--f-mono); color: var(--ink); }
+.summary-text { font-size: .92rem; background: var(--surface-2); border-radius: var(--r); padding: 14px 16px; display: grid; gap: 8px; }
+.summary-text p { max-width: 80ch; }
+
+details.how { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 0 18px; }
+details.how summary { cursor: pointer; padding: 14px 0; font: 600 1.02rem var(--f-display); }
+details.how > div { padding-bottom: 16px; display: grid; gap: 10px; font-size: .9rem; }
+details.how ol, details.how ul { margin: 0; padding-left: 20px; display: grid; gap: 4px; }
+code { font-family: var(--f-mono); font-size: .86em; background: var(--surface-2); padding: 1px 5px; border-radius: 4px; }
+.toast { position: fixed; left: 50%; bottom: calc(18px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--ink); color: var(--bg); padding: 8px 14px; border-radius: var(--r); font-size: .88rem; z-index: 20; }
+footer .wrap { padding-block: 0 40px; display: grid; gap: 12px; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+@media (max-width: 560px) { .section { padding: 14px; } .step-btn small { display: none; } td.wrapc { min-width: 140px; } }
+</style>
+
+<header class="top">
+  <div class="wrap">
+    <div class="eyebrow">Resolución UPME 016 de 2024 · Anexo, pasos 4 y 5</div>
+    <h1>Calculadora de línea base energética</h1>
+    <p class="lead">Pegue la facturación mensual del edificio y sus variables relevantes. La herramienta normaliza los consumos, arma el periodo base, calcula los tres modelos de la resolución (valor absoluto, cociente y estadístico), deja lista la línea base para el informe y hace el seguimiento de los meses siguientes con CUSUM.</p>
+    <div class="meta-row">
+      <label class="field" style="min-width:260px;flex:1 1 260px;max-width:420px">Edificio
+        <input type="text" id="bname" placeholder="Nombre del edificio">
+      </label>
+      <span id="srcChip" class="chip info"></span>
+    </div>
+  </div>
+</header>
+
+<nav class="steps" aria-label="Pasos">
+  <div class="wrap" role="tablist">
+    <button class="step-btn" role="tab" id="tab-datos" data-step="datos" aria-selected="true"><span class="n">1</span><span>Datos<small>facturación y variables</small></span></button>
+    <button class="step-btn" role="tab" id="tab-periodo" data-step="periodo" aria-selected="false"><span class="n">2</span><span>Periodo base<small>pasos 2 y 3</small></span></button>
+    <button class="step-btn" role="tab" id="tab-modelos" data-step="modelos" aria-selected="false"><span class="n">3</span><span>Modelos<small>paso 4 · numeral 7.4</small></span></button>
+    <button class="step-btn" role="tab" id="tab-lben" data-step="lben" aria-selected="false"><span class="n">4</span><span>Línea base<small>paso 5 · numeral 7.5</small></span></button>
+    <button class="step-btn" role="tab" id="tab-seguimiento" data-step="seguimiento" aria-selected="false"><span class="n">5</span><span>Seguimiento<small>CUSUM · periodo de reporte</small></span></button>
+  </div>
+</nav>
+
+<main>
+  <div class="wrap">
+    <section class="panel" id="p-datos" role="tabpanel" aria-labelledby="tab-datos"></section>
+    <section class="panel" id="p-periodo" role="tabpanel" aria-labelledby="tab-periodo" hidden></section>
+    <section class="panel" id="p-modelos" role="tabpanel" aria-labelledby="tab-modelos" hidden></section>
+    <section class="panel" id="p-lben" role="tabpanel" aria-labelledby="tab-lben" hidden></section>
+    <section class="panel" id="p-seguimiento" role="tabpanel" aria-labelledby="tab-seguimiento" hidden></section>
+  </div>
+</main>
+
+<footer>
+  <div class="wrap">
+    <details class="how" id="how">
+      <summary>Cómo calcula esta herramienta</summary>
+      <div>
+        <p>Los cálculos siguen el numeral 7 del Anexo de la Resolución UPME 016 de 2024. Donde el texto deja un detalle abierto, la herramienta toma la decisión que se indica, para que pueda justificarla en el informe.</p>
+        <ol>
+          <li><b>Normalización (ecuación 1).</b> Consumo normalizado = kWh facturados ÷ días facturados × 30.</li>
+          <li><b>Valor absoluto (7.4.1).</b> Para cada mes calendario se promedian los valores de ese mes en los años del periodo base. Los valores que quedan fuera de ±10 % de ese promedio se marcan y se retiran, y el promedio se recalcula una vez. Si todos los valores de un mes quedan fuera, se conservan y se avisa de dispersión alta.</li>
+          <li><b>Intervalo de confianza (ecuaciones 4 y 5).</b> Con 10 datos o más se calcula la desviación estándar de todos los datos usados y se muestra la banda LBEn ± 2σ. Se usa la desviación estándar muestral (n − 1), como DESVEST.M de Excel. La banda es informativa: no retira datos.</li>
+          <li><b>Cociente (7.4.2).</b> Cada mes se divide el consumo normalizado entre la variable elegida. Los cocientes se promedian por mes calendario con el mismo filtro de ±10 %. La energía de la línea base de un mes es cociente del mes × valor de la variable en ese mes. Los meses con la variable en cero o vacía no se pueden usar.</li>
+          <li><b>Estadístico (7.4.3).</b> Regresión lineal por mínimos cuadrados, con la misma salida que la herramienta Regresión de Excel al 95 %. Si una variable tiene probabilidad (p-value) mayor que 0,05 se retira y se vuelve a correr. Un R² bajo no invalida el modelo; la decisión la da el p-value.</li>
+          <li><b>Comparación.</b> El error medio absoluto y los meses con error mayor al 10 % se calculan sobre el periodo base. Son una ayuda para elegir y no los exige la resolución.</li>
+          <li><b>Métricas de ajuste.</b> CV(RMSE) = √(Σ(y − ŷ)² ÷ (n − p)) ÷ ȳ × 100 y NMBE = Σ(y − ŷ) ÷ ((n − p) · ȳ) × 100, donde y es el consumo normalizado a 30 días, ŷ lo que predice el modelo para ese mes y ȳ el promedio de y. Un NMBE positivo indica que el modelo se queda corto. n son los meses del periodo base que usa el modelo; en el cociente no cuentan los meses con la variable vacía o en cero. p son los parámetros que el modelo estima con esos meses: en valor absoluto, un promedio por cada mes calendario con LBEn (12 si el periodo base cubre todo el año); en el cociente, un cociente por cada mes calendario, porque así se calcula aquí; en el estadístico, los coeficientes incluida la intercepción. Con mínimos cuadrados e intercepto, el NMBE dentro de la muestra da cero por construcción; el sesgo se evalúa con meses que no se usaron para ajustar. En valor absoluto ocurre igual cuando el filtro de ±10 % no retira datos, porque cada LBEn es un promedio.</li>
+          <li><b>Seguimiento (CUSUM).</b> El periodo de reporte son los meses cargados posteriores al último mes del periodo base. Para cada mes, el consumo esperado es la LBEn de su mes calendario (valor absoluto), el cociente del mes calendario por la variable del mes (cociente) o la ecuación de regresión con las variables del mes (estadístico). La diferencia es real − esperado y el CUSUM es su suma acumulada. El ahorro acumulado es −CUSUM final, también en % del consumo esperado acumulado. En el reporte, CV(RMSE) y NMBE usan n y p = 0, porque esos meses no entraron en el ajuste. Un mes en que falta una variable del modelo se marca y no entra en la suma.</li>
+        </ol>
+        <p>Como referencia orientativa, ASHRAE Guideline 14 usa, para datos mensuales, CV(RMSE) ≤ 15 % y NMBE dentro de ±5 % (30 % y ±10 % con datos horarios). Es un criterio para calibrar modelos de energía, no un requisito de la Res. UPME 016. Fuente abierta que cita la edición 2014: <a href="https://discovery-pp.ucl.ac.uk/10117731/3/Burman_2020_BPA_SimBuild_JainN.pdf" target="_blank" rel="noopener">Jain, Burman, Mumovic y Davies, SimBuild 2020</a>.</p>
+        <p>El modelo de ingeniería o simulación (7.4.4) no se calcula aquí: se usa cuando no hay datos históricos y requiere un modelo detallado del sistema.</p>
+        <p class="muted small">Herramienta de apoyo para el curso Caracterización de energía y eficiencia energética (UNAL). Verifique los criterios con el <a href="https://docs.upme.gov.co/Normatividad/Anexo_Res016_2024.pdf" target="_blank" rel="noopener">Anexo de la Resolución UPME 016 de 2024</a> y la <a href="https://gestornormativo.creg.gov.co/gestor/entorno/docs/resolucion_upme_0016_2024.htm" target="_blank" rel="noopener">resolución</a>. Sus datos se guardan solo en este navegador.</p>
+      </div>
+    </details>
+  </div>
+</footer>
+<div class="tip" id="tip" hidden></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script>
+/* Cálculos de línea base energética según el Anexo de la Res. UPME 016 de 2024.
+   Funciones puras: se pueden probar en Node y se insertan tal cual en la página. */
+const LB = (() => {
+  const MESES = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+  const MESES_LARGOS = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+
+  /* ---------- lectura de datos ---------- */
+  function parseNumber(v) {
+    if (v === null || v === undefined) return NaN;
+    if (typeof v === 'number') return v;
+    let s = String(v).trim().replace(/\s| |\$|kwh/gi, '');
+    if (!s) return NaN;
+    const hasC = s.includes(','), hasD = s.includes('.');
+    if (hasC && hasD) {
+      if (s.lastIndexOf(',') > s.lastIndexOf('.')) s = s.replace(/\./g, '').replace(',', '.');
+      else s = s.replace(/,/g, '');
+    } else if (hasC) {
+      s = /^-?\d{1,3}(,\d{3}){2,}$/.test(s) ? s.replace(/,/g, '') : s.replace(',', '.');
+    } else if (hasD) {
+      if (/^-?\d{1,3}(\.\d{3})+$/.test(s)) s = s.replace(/\./g, '');
+    }
+    const n = Number(s);
+    return Number.isFinite(n) ? n : NaN;
+  }
+
+  function ym(y, m) { return `${y}-${String(m).padStart(2, '0')}`; }
+
+  function parseMonth(v) {
+    if (v === null || v === undefined || v === '') return null;
+    if (v instanceof Date && !isNaN(v)) return ym(v.getFullYear(), v.getMonth() + 1);
+    if (typeof v === 'number' && v > 20000 && v < 80000) { // serial de Excel
+      const d = new Date(Math.round((v - 25569) * 86400000));
+      return ym(d.getUTCFullYear(), d.getUTCMonth() + 1);
+    }
+    const s = String(v).trim().toLowerCase();
+    let m;
+    if ((m = s.match(/^(\d{4})[-/.](\d{1,2})(?:[-/.]\d{1,2})?/))) return okYm(+m[1], +m[2]);
+    if ((m = s.match(/^\d{1,2}[-/.](\d{1,2})[-/.](\d{4})$/))) return okYm(+m[2], +m[1]);
+    if ((m = s.match(/^(\d{1,2})[-/.](\d{4})$/))) return okYm(+m[2], +m[1]);
+    if ((m = s.match(/^([a-záéíóú]+)\.?[\s\-/.]*(?:de\s+)?(\d{2}|\d{4})$/))) {
+      const name = m[1].normalize('NFD').replace(/[̀-ͯ]/g, '');
+      let idx = MESES_LARGOS.findIndex(x => x === name);
+      if (idx < 0) idx = MESES.findIndex(x => name.startsWith(x));
+      if (idx < 0 && name.startsWith('set')) idx = 8;
+      if (idx < 0) return null;
+      let y = +m[2]; if (y < 100) y += 2000;
+      return okYm(y, idx + 1);
+    }
+    return null;
+  }
+  function okYm(y, m) { return (y > 1990 && y < 2100 && m >= 1 && m <= 12) ? ym(y, m) : null; }
+
+  function splitText(text) {
+    const lines = String(text).replace(/\r/g, '').split('\n').filter(l => l.trim() !== '');
+    if (!lines.length) return [];
+    const sep = lines[0].includes('\t') ? '\t' : (lines[0].includes(';') ? ';' : ',');
+    return lines.map(l => l.split(sep).map(c => c.trim().replace(/^"(.*)"$/, '$1')));
+  }
+
+  /* Convierte una matriz (primera fila = encabezados) en el conjunto de datos. */
+  function buildDataset(matrix) {
+    const errors = [], warnings = [];
+    if (!matrix || matrix.length < 2) return { months: [], varNames: [], errors: ['No hay filas de datos. La primera fila debe tener los encabezados.'], warnings };
+    const headers = matrix[0].map(h => String(h ?? '').trim());
+    if (headers.length < 2) return { months: [], varNames: [], errors: ['Se necesitan al menos dos columnas: mes y kWh facturados.'], warnings };
+    const hasDias = headers.length >= 3 && /d[ií]a/i.test(headers[2]);
+    const varStart = hasDias ? 3 : 2;
+    const varNames = headers.slice(varStart).map((h, i) => h || `Variable ${i + 1}`);
+    if (!hasDias) warnings.push('No encontré la columna de días facturados (tercera columna). Se asumen meses de 30 días, sin normalizar.');
+    const seen = new Set(), months = [];
+    matrix.slice(1).forEach((row, i) => {
+      if (!row || row.every(c => c === '' || c === null || c === undefined)) return;
+      const key = parseMonth(row[0]);
+      const fila = i + 2;
+      if (!key) { errors.push(`Fila ${fila}: no reconozco el mes «${row[0]}». Use AAAA-MM, por ejemplo 2023-04.`); return; }
+      if (seen.has(key)) { errors.push(`Fila ${fila}: el mes ${key} está repetido.`); return; }
+      const kwh = parseNumber(row[1]);
+      if (!Number.isFinite(kwh) || kwh < 0) { errors.push(`Fila ${fila} (${key}): el consumo «${row[1]}» no es un número válido.`); return; }
+      let dias = hasDias ? parseNumber(row[2]) : 30;
+      if (!Number.isFinite(dias) || dias <= 0) { warnings.push(`${key}: sin días facturados válidos; se asumen 30.`); dias = 30; }
+      const vars = {};
+      varNames.forEach((n, j) => { const x = parseNumber(row[varStart + j]); vars[n] = Number.isFinite(x) ? x : null; });
+      seen.add(key);
+      months.push({ ym: key, kwh, dias, norm: kwh / dias * 30, vars });
+    });
+    months.sort((a, b) => a.ym.localeCompare(b.ym));
+    return { months, varNames, errors, warnings };
+  }
+
+  /* ---------- estadística básica ---------- */
+  const mean = a => a.reduce((s, x) => s + x, 0) / a.length;
+  function stdev(a) { // muestral (n−1), como DESVEST.M de Excel
+    if (a.length < 2) return NaN;
+    const m = mean(a); return Math.sqrt(a.reduce((s, x) => s + (x - m) ** 2, 0) / (a.length - 1));
+  }
+  const monthOf = key => +key.slice(5, 7);
+
+  /* ---------- distribuciones (beta incompleta regularizada) ---------- */
+  function lgamma(x) {
+    const c = [76.18009172947146, -86.50532032941677, 24.01409824083091, -1.231739572450155, 0.1208650973866179e-2, -0.5395239384953e-5];
+    let y = x, t = x + 5.5; t -= (x + 0.5) * Math.log(t); let s = 1.000000000190015;
+    for (let j = 0; j < 6; j++) s += c[j] / ++y;
+    return -t + Math.log(2.5066282746310005 * s / x);
+  }
+  function betacf(a, b, x) {
+    const MAXIT = 300, EPS = 3e-14, FPMIN = 1e-300;
+    let qab = a + b, qap = a + 1, qam = a - 1, c = 1, d = 1 - qab * x / qap;
+    if (Math.abs(d) < FPMIN) d = FPMIN; d = 1 / d; let h = d;
+    for (let m = 1; m <= MAXIT; m++) {
+      const m2 = 2 * m; let aa = m * (b - m) * x / ((qam + m2) * (a + m2));
+      d = 1 + aa * d; if (Math.abs(d) < FPMIN) d = FPMIN; c = 1 + aa / c; if (Math.abs(c) < FPMIN) c = FPMIN; d = 1 / d; h *= d * c;
+      aa = -(a + m) * (qab + m) * x / ((a + m2) * (qap + m2));
+      d = 1 + aa * d; if (Math.abs(d) < FPMIN) d = FPMIN; c = 1 + aa / c; if (Math.abs(c) < FPMIN) c = FPMIN; d = 1 / d;
+      const del = d * c; h *= del; if (Math.abs(del - 1) < EPS) break;
+    }
+    return h;
+  }
+  function ibeta(x, a, b) {
+    if (x <= 0) return 0; if (x >= 1) return 1;
+    const bt = Math.exp(lgamma(a + b) - lgamma(a) - lgamma(b) + a * Math.log(x) + b * Math.log(1 - x));
+    return x < (a + 1) / (a + b + 2) ? bt * betacf(a, b, x) / a : 1 - bt * betacf(b, a, 1 - x) / b;
+  }
+  const tTwoTail = (t, df) => ibeta(df / (df + t * t), df / 2, 0.5);          // P(|T| > |t|)
+  const fUpper = (f, d1, d2) => f <= 0 ? 1 : ibeta(d2 / (d2 + d1 * f), d2 / 2, d1 / 2); // P(F > f)
+  function tInv975(df) { // valor t tal que P(|T|>t)=0,05
+    let lo = 0, hi = 100;
+    for (let i = 0; i < 200; i++) { const mid = (lo + hi) / 2; if (tTwoTail(mid, df) > 0.05) lo = mid; else hi = mid; }
+    return (lo + hi) / 2;
+  }
+
+  /* ---------- álgebra ---------- */
+  function invert(A) {
+    const n = A.length, M = A.map((r, i) => [...r, ...Array.from({ length: n }, (_, j) => (i === j ? 1 : 0))]);
+    for (let c = 0; c < n; c++) {
+      let p = c; for (let r = c + 1; r < n; r++) if (Math.abs(M[r][c]) > Math.abs(M[p][c])) p = r;
+      const scale = Math.max(...A.map(r => Math.abs(r[c]))) || 1;
+      if (Math.abs(M[p][c]) < 1e-10 * scale) return null;
+      [M[c], M[p]] = [M[p], M[c]];
+      const piv = M[c][c]; for (let j = 0; j < 2 * n; j++) M[c][j] /= piv;
+      for (let r = 0; r < n; r++) if (r !== c) { const f = M[r][c]; if (f) for (let j = 0; j < 2 * n; j++) M[r][j] -= f * M[c][j]; }
+    }
+    return M.map(r => r.slice(n));
+  }
+
+  /* ---------- regresión lineal (salida tipo Excel) ---------- */
+  function ols(y, cols, names) {
+    const n = y.length, k = cols.length, p = k + 1, dfRes = n - p;
+    if (dfRes < 1) return { error: `Hay ${n} meses y ${p} coeficientes: se necesitan más meses que coeficientes.` };
+    const X = y.map((_, i) => [1, ...cols.map(c => c[i])]);
+    const XtX = Array.from({ length: p }, (_, a) => Array.from({ length: p }, (_, b) => X.reduce((s, r) => s + r[a] * r[b], 0)));
+    const inv = invert(XtX);
+    if (!inv) return { error: 'Las variables elegidas son colineales o constantes (por ejemplo, una columna con el mismo valor todos los meses). Quite alguna y vuelva a calcular.' };
+    const Xty = Array.from({ length: p }, (_, a) => X.reduce((s, r, i) => s + r[a] * y[i], 0));
+    const b = inv.map(r => r.reduce((s, v, j) => s + v * Xty[j], 0));
+    const yhat = X.map(r => r.reduce((s, v, j) => s + v * b[j], 0));
+    const ym_ = mean(y);
+    const sse = y.reduce((s, v, i) => s + (v - yhat[i]) ** 2, 0);
+    const sst = y.reduce((s, v) => s + (v - ym_) ** 2, 0);
+    const ssr = sst - sse, mse = sse / dfRes;
+    const r2 = sst > 0 ? ssr / sst : NaN;
+    const tc = tInv975(dfRes);
+    const coefs = b.map((bi, j) => {
+      const se = Math.sqrt(Math.max(mse * inv[j][j], 0));
+      const t = se > 0 ? bi / se : Infinity;
+      return { name: j === 0 ? 'Intercepción' : names[j - 1], b: bi, se, t, p: se > 0 ? tTwoTail(t, dfRes) : 0, lo: bi - tc * se, hi: bi + tc * se };
+    });
+    const F = k > 0 ? (ssr / k) / mse : NaN;
+    return {
+      n, k, dfRes, coefs, yhat, r: Math.sqrt(Math.max(r2, 0)), r2,
+      r2adj: 1 - (1 - r2) * (n - 1) / dfRes, seReg: Math.sqrt(mse),
+      anova: { ssr, sse, sst, msr: k > 0 ? ssr / k : NaN, mse, F, sigF: k > 0 ? fUpper(F, k, dfRes) : NaN }
+    };
+  }
+
+  /* Elimina de a una la variable con mayor p-value > alfa y vuelve a correr. */
+  function backward(y, cols, names, alpha = 0.05) {
+    let c = cols.slice(), nm = names.slice();
+    const steps = [];
+    while (true) {
+      const fit = ols(y, c, nm);
+      if (fit.error) { steps.push({ names: nm.slice(), fit }); return { steps, final: fit, names: nm }; }
+      steps.push({ names: nm.slice(), fit });
+      if (!nm.length) return { steps, final: fit, names: nm };
+      let worst = -1, wp = alpha;
+      fit.coefs.slice(1).forEach((co, j) => { if (co.p > wp) { wp = co.p; worst = j; } });
+      if (worst < 0) return { steps, final: fit, names: nm };
+      steps[steps.length - 1].removed = { name: nm[worst], p: wp };
+      c.splice(worst, 1); nm.splice(worst, 1);
+    }
+  }
+
+  /* ---------- modelos por mes calendario (7.4.1 y 7.4.2) ---------- */
+  function byCalendarMonth(items, valueOf) {
+    const groups = Array.from({ length: 12 }, () => []);
+    items.forEach(it => { const v = valueOf(it); if (Number.isFinite(v)) groups[monthOf(it.ym) - 1].push({ ym: it.ym, v }); });
+    return groups.map((g, i) => {
+      if (!g.length) return { mes: i + 1, values: [], avg0: NaN, value: NaN, kept: 0, dispersion: false };
+      const avg0 = mean(g.map(x => x.v));
+      g.forEach(x => { x.out = x.v < 0.9 * avg0 || x.v > 1.1 * avg0; });
+      let kept = g.filter(x => !x.out), dispersion = false;
+      if (!kept.length) { kept = g; g.forEach(x => { x.out = false; }); dispersion = true; }
+      return { mes: i + 1, values: g, avg0, value: mean(kept.map(x => x.v)), kept: kept.length, dispersion };
+    });
+  }
+
+  function confidence(values) {
+    const N = values.length, s = stdev(values);
+    return { N, sigma: s, applies: N >= 10 && Number.isFinite(s) };
+  }
+
+  function modelAbsolute(base) {
+    const months = byCalendarMonth(base, it => it.norm);
+    const used = months.flatMap(m => m.values.filter(x => !x.out).map(x => x.v));
+    const conf = confidence(used);
+    const pred = base.map(it => months[monthOf(it.ym) - 1].value);
+    return { months, conf, pred, nParams: months.filter(m => m.values.length).length };
+  }
+
+  function modelRatio(base, varName) {
+    const valid = base.filter(it => Number.isFinite(it.vars[varName]) && it.vars[varName] > 0);
+    const skipped = base.filter(it => !(Number.isFinite(it.vars[varName]) && it.vars[varName] > 0)).map(it => it.ym);
+    const months = byCalendarMonth(valid, it => it.norm / it.vars[varName]);
+    const used = months.flatMap(m => m.values.filter(x => !x.out).map(x => x.v));
+    const conf = confidence(used);
+    const pred = base.map(it => {
+      const r = months[monthOf(it.ym) - 1].value, x = it.vars[varName];
+      return Number.isFinite(r) && Number.isFinite(x) && x > 0 ? r * x : NaN;
+    });
+    return { months, conf, pred, skipped, varName, nParams: months.filter(m => Number.isFinite(m.value)).length };
+  }
+
+  function errorStats(y, yhat) {
+    const pairs = y.map((v, i) => [v, yhat[i]]).filter(([a, b]) => Number.isFinite(a) && Number.isFinite(b) && a > 0);
+    if (!pairs.length) return { mape: NaN, over10: NaN, n: 0 };
+    const rel = pairs.map(([a, b]) => Math.abs(a - b) / a);
+    return { mape: mean(rel), over10: rel.filter(r => r > 0.1).length, n: pairs.length };
+  }
+
+  /* ---------- validación de modelos (CV(RMSE) y NMBE) ---------- */
+  /* En %, con denominador n − p. Dentro de la muestra p = parámetros del modelo;
+     fuera de la muestra (periodo de reporte) p = 0. Solo cuentan los meses con real y predicho. */
+  function fitStats(y, yhat, p = 0) {
+    const pairs = y.map((v, i) => [v, yhat[i]]).filter(([a, b]) => Number.isFinite(a) && Number.isFinite(b));
+    const n = pairs.length, df = n - p;
+    if (!n) return { n, p, df, ybar: NaN, sse: NaN, sumRes: NaN, cvrmse: NaN, nmbe: NaN };
+    const ybar = mean(pairs.map(q => q[0]));
+    const sse = pairs.reduce((s, [a, b]) => s + (a - b) ** 2, 0);
+    const sumRes = pairs.reduce((s, [a, b]) => s + (a - b), 0);
+    const ok = df >= 1 && ybar !== 0;
+    return { n, p, df, ybar, sse, sumRes, cvrmse: ok ? Math.sqrt(sse / df) / ybar * 100 : NaN, nmbe: ok ? sumRes / (df * ybar) * 100 : NaN };
+  }
+
+  /* ---------- consumo esperado en meses nuevos (periodo de reporte) ---------- */
+  function predictAbsolute(model, items) { return items.map(it => model.months[monthOf(it.ym) - 1].value); }
+  function predictRatio(model, items) {
+    return items.map(it => {
+      const r = model.months[monthOf(it.ym) - 1].value, x = it.vars[model.varName];
+      return Number.isFinite(r) && Number.isFinite(x) && x > 0 ? r * x : NaN;
+    });
+  }
+  function predictReg(fit, items) {
+    const b0 = fit.coefs[0].b, terms = fit.coefs.slice(1);
+    return items.map(it => {
+      let s = b0;
+      for (const c of terms) { const x = it.vars[c.name]; if (!Number.isFinite(x)) return NaN; s += c.b * x; }
+      return s;
+    });
+  }
+
+  /* ---------- CUSUM: suma acumulada de (real − esperado) ---------- */
+  function cusum(items, expected) {
+    let acc = 0, sumA = 0, sumE = 0;
+    const rows = items.map((it, i) => {
+      const e = expected[i], a = it.norm;
+      if (!Number.isFinite(e) || !Number.isFinite(a)) return { ym: it.ym, actual: a, expected: NaN, diff: NaN, cusum: NaN, used: false };
+      const d = a - e; acc += d; sumA += a; sumE += e;
+      return { ym: it.ym, actual: a, expected: e, diff: d, cusum: acc, used: true };
+    });
+    const u = rows.filter(r => r.used), n = u.length;
+    return {
+      rows, n, sumActual: sumA, sumExpected: sumE,
+      final: n ? acc : NaN, savings: n ? -acc : NaN, savingsPct: n && sumE > 0 ? -acc / sumE * 100 : NaN,
+      stats: fitStats(u.map(r => r.actual), u.map(r => r.expected), 0)
+    };
+  }
+
+  return { MESES, MESES_LARGOS, parseNumber, parseMonth, splitText, buildDataset, mean, stdev, monthOf,
+           ibeta, tTwoTail, fUpper, tInv975, ols, backward, modelAbsolute, modelRatio, errorStats,
+           fitStats, predictAbsolute, predictRatio, predictReg, cusum };
+})();
+
+
+/* ===================== Aplicación ===================== */
+(() => {
+const $ = (s, el = document) => el.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const NF = {};
+const fmt = (v, d = 0) => { if (!Number.isFinite(v)) return '—'; const k = d; NF[k] ??= new Intl.NumberFormat('es-CO', { minimumFractionDigits: d, maximumFractionDigits: d }); return NF[k].format(v); };
+const pct = (v, d = 1) => Number.isFinite(v) ? fmt(v * 100, d) + ' %' : '—';
+const fmtP = p => !Number.isFinite(p) ? '—' : (p < 0.0001 ? p.toExponential(2).replace('.', ',') : fmt(p, 4));
+const monthLabel = (key, short = false) => { const [y, m] = key.split('-'); return `${LB.MESES[+m - 1]}${short ? ' ' + y.slice(2) : ' ' + y}`; };
+const MES_CAP = LB.MESES.map(m => m[0].toUpperCase() + m.slice(1));
+
+/* ---------- datos de ejemplo (ficticios) ---------- */
+const EX_HEAD = ['Mes', 'kWh facturados', 'Días facturados', 'Días de clase', 'Ocupación (personas/día)', 'Temperatura media (°C)'];
+const EX_ROWS = [["2021-01", 7837, 31, 0, 199, 13.9], ["2021-02", 11015, 29, 9, 519, 13.8], ["2021-03", 16486, 31, 22, 1004, 14.2], ["2021-04", 14711, 29, 20, 900, 14.3], ["2021-05", 14563, 28, 22, 968, 14.4], ["2021-06", 13740, 32, 13, 627, 15.2], ["2021-07", 9540, 33, 3, 151, 14.6], ["2021-08", 12024, 28, 15, 733, 15.2], ["2021-09", 24557, 32, 21, 1071, 14.4], ["2021-10", 22905, 31, 21, 849, 14.0], ["2021-11", 23379, 33, 20, 869, 13.7], ["2021-12", 13305, 31, 3, 270, 13.7], ["2022-01", 15743, 32, 1, 241, 13.9], ["2022-02", 21444, 32, 10, 500, 14.3], ["2022-03", 31227, 33, 22, 985, 13.8], ["2022-04", 24867, 28, 20, 926, 14.1], ["2022-05", 28033, 29, 22, 958, 14.7], ["2022-06", 27766, 33, 17, 811, 15.1], ["2022-07", 17131, 30, 3, 309, 14.7], ["2022-08", 25177, 33, 14, 593, 14.4], ["2022-09", 25688, 29, 20, 922, 13.6], ["2022-10", 25014, 28, 19, 913, 13.7], ["2022-11", 26649, 29, 20, 938, 14.1], ["2022-12", 13898, 28, 3, 248, 14.1], ["2023-01", 15193, 31, 0, 152, 13.3], ["2023-02", 20214, 30, 8, 506, 13.9], ["2023-03", 26401, 30, 20, 933, 13.9], ["2023-04", 23990, 29, 16, 751, 14.2], ["2023-05", 30685, 32, 22, 1037, 14.6], ["2023-06", 23343, 30, 13, 672, 14.3], ["2023-07", 17478, 33, 2, 140, 13.8], ["2023-08", 23653, 30, 14, 622, 14.0], ["2023-09", 26023, 29, 19, 842, 14.1], ["2023-10", 23380, 32, 22, 1003, 13.9], ["2023-11", 27627, 33, 18, 777, 13.8], ["2023-12", 15365, 30, 1, 275, 13.7], ["2024-01", 15706, 32, 0, 140, 13.7], ["2024-02", 20133, 28, 12, 536, 14.2], ["2024-03", 32428, 33, 22, 932, 14.1], ["2024-04", 27254, 33, 16, 768, 13.7], ["2024-05", 30614, 32, 22, 972, 14.4], ["2024-06", 27511, 33, 16, 798, 15.4], ["2024-07", 17091, 30, 4, 294, 14.6], ["2024-08", 25498, 31, 15, 730, 13.9], ["2024-09", 28253, 29, 22, 916, 14.4], ["2024-10", 32132, 33, 20, 920, 13.6], ["2024-11", 28455, 33, 18, 766, 13.5], ["2024-12", 17234, 30, 3, 274, 13.5]];
+const EXAMPLE = { name: 'Edificio de ejemplo · aulas y oficinas (datos ficticios)', matrix: [EX_HEAD, ...EX_ROWS], baseFrom: '2022-01', baseTo: '2024-12' };
+
+/* ---------- estado ---------- */
+const KEY = 'lben-calc-v1';
+let S = load() || fresh(EXAMPLE, 'ejemplo');
+function fresh(src, source) {
+  return { name: src.name, source, matrix: src.matrix, baseFrom: src.baseFrom || null, baseTo: src.baseTo || null, excluded: [], ratioVar: null, regVars: null, model: null, step: 'datos', sub: 'abs', regLog: null, pasteOpen: false };
+}
+function load() { try { const v = JSON.parse(localStorage.getItem(KEY)); return v && Array.isArray(v.matrix) ? v : null; } catch { return null; } }
+function save() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch { /* sin almacenamiento: la página sigue funcionando */ } }
+
+let D = {};
+function derive() {
+  const ds = LB.buildDataset(S.matrix);
+  D = { ds, months: ds.months, varNames: ds.varNames };
+  const keys = ds.months.map(m => m.ym);
+  if (!keys.length) return;
+  if (!keys.includes(S.baseFrom) || !keys.includes(S.baseTo) || S.baseFrom > S.baseTo) {
+    S.baseTo = keys[keys.length - 1];
+    S.baseFrom = keys[Math.max(0, keys.length - 36)];
+  }
+  const ex = new Set(S.excluded);
+  D.inPeriod = ds.months.filter(m => m.ym >= S.baseFrom && m.ym <= S.baseTo);
+  D.base = D.inPeriod.filter(m => !ex.has(m.ym));
+  D.y = D.base.map(m => m.norm);
+  D.complete = ds.varNames.filter(v => D.base.length && D.base.every(m => Number.isFinite(m.vars[v])));
+  D.positive = D.complete.filter(v => D.base.every(m => m.vars[v] > 0));
+  if (!ds.varNames.includes(S.ratioVar)) S.ratioVar = D.positive[0] || D.complete[0] || ds.varNames[0] || null;
+  if (!Array.isArray(S.regVars)) S.regVars = D.complete.slice();
+  S.regVars = S.regVars.filter(v => D.complete.includes(v));
+  if (D.base.length < 2) return;
+  D.abs = LB.modelAbsolute(D.base);
+  D.ratio = S.ratioVar ? LB.modelRatio(D.base, S.ratioVar) : null;
+  const cols = names => names.map(v => D.base.map(m => m.vars[v]));
+  D.reg = LB.ols(D.y, cols(S.regVars), S.regVars);
+  D.auto = D.complete.length ? LB.backward(D.y, cols(D.complete), D.complete) : null;
+  D.err = {
+    abs: LB.errorStats(D.y, D.abs.pred),
+    ratio: D.ratio ? LB.errorStats(D.y, D.ratio.pred) : null,
+    reg: D.reg && !D.reg.error ? LB.errorStats(D.y, D.reg.yhat) : null
+  };
+  D.regOk = D.reg && !D.reg.error && S.regVars.length > 0 && D.reg.coefs.slice(1).every(c => c.p <= 0.05);
+  const autoVars = D.auto && !D.auto.final.error ? D.auto.names : [];
+  let sug = 'abs', why;
+  if (autoVars.length) { sug = 'reg'; why = `al menos una variable explica el consumo con p < 0,05 (${autoVars.join(', ')}). El modelo estadístico permite ajustar la línea base cuando esas variables cambian.`; }
+  else if (D.ratio && D.err.ratio && D.err.ratio.n === D.y.length && D.err.ratio.mape < D.err.abs.mape) { sug = 'ratio'; why = `ninguna variable pasa la prueba de p-value, pero el cociente con «${S.ratioVar}» reproduce mejor el consumo que el valor absoluto.`; }
+  else why = 'ninguna variable resulta significativa con los datos del periodo base, así que el consumo se describe mejor por su promedio mensual.';
+  D.suggest = { model: sug, why };
+  if (!['abs', 'ratio', 'reg'].includes(S.model)) S.model = null;
+  // Métricas de ajuste dentro de la muestra: p = parámetros que cada modelo estima con el periodo base.
+  D.fitm = {
+    abs: LB.fitStats(D.y, D.abs.pred, D.abs.nParams),
+    ratio: D.ratio ? LB.fitStats(D.y, D.ratio.pred, D.ratio.nParams) : null,
+    reg: D.reg && !D.reg.error && S.regVars.length ? LB.fitStats(D.y, D.reg.yhat, D.reg.coefs.length) : null
+  };
+}
+const modelAvail = () => ({ abs: !!D.abs, ratio: !!D.ratio, reg: !!(D.reg && !D.reg.error && S.regVars.length) });
+const modelName = k => ({ abs: 'Valor absoluto (7.4.1)', ratio: `Cociente (7.4.2) con ${S.ratioVar}`, reg: 'Estadístico (7.4.3)' }[k]);
+const pc = (v, d = 1) => Number.isFinite(v) ? fmt(Math.abs(v) < 0.5 * 10 ** -d ? 0 : v, d) + ' %' : '—';
+
+/* ---------- utilidades de interfaz ---------- */
+let toastT;
+function toast(msg) { let t = $('#toast'); if (!t) { t = document.createElement('div'); t.id = 'toast'; t.className = 'toast'; document.body.append(t); } t.textContent = msg; t.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => { t.hidden = true; }, 2400); }
+async function copyText(text, okMsg = 'Copiado. Péguelo en Excel o en el informe.') {
+  try { await navigator.clipboard.writeText(text); toast(okMsg); }
+  catch {
+    const ta = document.createElement('textarea'); ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0'; document.body.append(ta); ta.select();
+    let ok = false; try { ok = document.execCommand('copy'); } catch { }
+    ta.remove(); toast(ok ? okMsg : 'No se pudo copiar. Seleccione la tabla y use Ctrl+C.');
+  }
+}
+function tableTSV(id) { const t = document.getElementById(id); if (!t) return ''; return [...t.querySelectorAll('tr')].map(tr => [...tr.children].map(c => c.innerText.replace(/\s+/g, ' ').trim()).join('\t')).join('\n'); }
+const copyBtn = (id, label = 'Copiar tabla') => `<button class="btn ghost" data-copy="${id}">${label}</button>`;
+
+// Fuera de claude.ai la descarga usa el navegador.
+let DL = (window.claude && window.claude.use) ? null : { save: async ({ filename, data }) => {
+  const blob = new Blob([data], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = filename;
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+} };
+(async () => { if (!(window.claude && window.claude.use)) return; try { DL = await window.claude.use('downloads'); } catch { DL = null; } if (DL) render(); })();
+async function saveFile(filename, data) {
+  if (!DL) { toast('Las descargas no están disponibles aquí. Use los botones «Copiar tabla».'); return; }
+  try { await DL.save({ filename, data }); toast('Archivo listo.'); }
+  catch (e) {
+    const code = e && e.code;
+    if (code === 'declined') return;
+    if (code === 'rate_limited') toast('Ya hay una descarga pendiente. Intente de nuevo en un momento.');
+    else toast('No se pudo descargar. Use los botones «Copiar tabla».');
+  }
+}
+const xlsxReady = () => typeof window.XLSX !== 'undefined';
+
+/* ---------- gráficas ---------- */
+const charts = [];
+function niceStep(range, count) { const raw = range / count, p = Math.pow(10, Math.floor(Math.log10(raw))), f = raw / p; return (f <= 1 ? 1 : f <= 2 ? 2 : f <= 2.5 ? 2.5 : f <= 5 ? 5 : 10) * p; }
+function ticks(min, max, count = 5) { if (min === max) { min -= 1; max += 1; } const st = niceStep(max - min, count); const a = Math.floor(min / st) * st, b = Math.ceil(max / st) * st; const out = []; for (let v = a; v <= b + st / 2; v += st) out.push(+v.toFixed(10)); return out; }
+const NS = 'http://www.w3.org/2000/svg';
+function el(tag, attrs = {}, parent) { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); if (parent) parent.append(e); return e; }
+const tip = () => $('#tip');
+function showTip(host, html, x, y) {
+  const t = tip(); t.innerHTML = html; t.hidden = false;
+  const r = host.getBoundingClientRect(), tw = t.offsetWidth, th = t.offsetHeight;
+  let left = r.left + window.scrollX + x + 14, top = r.top + window.scrollY + y - th - 10;
+  if (left + tw > window.scrollX + document.documentElement.clientWidth - 8) left = r.left + window.scrollX + x - tw - 14;
+  if (top < window.scrollY + 8) top = r.top + window.scrollY + y + 14;
+  t.style.left = left + 'px'; t.style.top = top + 'px';
+}
+const hideTip = () => { tip().hidden = true; };
+
+function tsChart(host, o) {
+  const draw = () => {
+    host.innerHTML = '';
+    const W = Math.max(300, host.clientWidth || 700), H = W < 560 ? 250 : 300, m = { l: 62, r: 14, t: 12, b: 36 };
+    const n = o.labels.length;
+    if (!n) return;
+    const vals = o.series.flatMap(s => s.values).concat(o.band ? [...o.band.lo, ...o.band.hi] : []).concat(o.zero ? [0] : []).filter(Number.isFinite);
+    let lo = Math.min(...vals), hi = Math.max(...vals); const padv = (hi - lo) * 0.06 || 1; lo -= padv; hi += padv;
+    const tk = ticks(lo, hi, 5); const y0 = tk[0], y1 = tk[tk.length - 1];
+    m.l = Math.max(m.l, Math.max(...tk.map(v => fmt(v).length)) * 6.8 + 14); // etiquetas largas (p. ej. −1.200.000) sin salirse
+    const iw = W - m.l - m.r, ih = H - m.t - m.b;
+    const X = i => m.l + (i + 0.5) * iw / n, Y = v => m.t + ih - (v - y0) / (y1 - y0) * ih;
+    const svg = el('svg', { viewBox: `0 0 ${W} ${H}`, role: 'img', 'aria-label': o.aria || 'Gráfica' }, host);
+    if (o.shade) el('rect', { x: m.l + o.shade[0] * iw / n, y: m.t, width: (o.shade[1] - o.shade[0] + 1) * iw / n, height: ih, fill: 'var(--shade)' }, svg);
+    tk.forEach(v => { el('line', { x1: m.l, x2: W - m.r, y1: Y(v), y2: Y(v), stroke: 'var(--grid)', 'stroke-width': 1 }, svg); const t = el('text', { x: m.l - 8, y: Y(v) + 4, 'text-anchor': 'end' }, svg); t.textContent = fmt(v); });
+    el('line', { x1: m.l, x2: W - m.r, y1: m.t + ih, y2: m.t + ih, stroke: 'var(--axis)', 'stroke-width': 1 }, svg);
+    if (o.zero) el('line', { x1: m.l, x2: W - m.r, y1: Y(0), y2: Y(0), stroke: 'var(--ink-2)', 'stroke-width': 1.25 }, svg);
+    if (o.monthTicks) o.labels.forEach((_, i) => el('line', { x1: X(i), x2: X(i), y1: m.t + ih, y2: m.t + ih + 4, stroke: 'var(--axis)', 'stroke-width': 1 }, svg));
+    if (o.gaps) o.gaps.forEach(i => { const cx = X(i), cy = m.t + ih - 7; el('path', { d: `M${cx - 4},${cy - 4}L${cx + 4},${cy + 4}M${cx - 4},${cy + 4}L${cx + 4},${cy - 4}`, stroke: 'var(--bad)', 'stroke-width': 1.6, 'stroke-linecap': 'round' }, svg); });
+    const every = Math.max(1, Math.ceil(52 / (iw / n)));
+    o.labels.forEach((k, i) => { if (i % every) return; const t = el('text', { x: X(i), y: H - m.b + 18, 'text-anchor': 'middle' }, svg); t.textContent = monthLabel(k, true); });
+    if (o.band) {
+      let d = '', up = [], dn = [];
+      o.labels.forEach((_, i) => { if (Number.isFinite(o.band.hi[i]) && Number.isFinite(o.band.lo[i])) { up.push([X(i), Y(o.band.hi[i])]); dn.push([X(i), Y(o.band.lo[i])]); } });
+      if (up.length) { d = 'M' + up.map(p => p.join(',')).join('L') + 'L' + dn.reverse().map(p => p.join(',')).join('L') + 'Z'; el('path', { d, fill: 'var(--band)', stroke: 'none' }, svg); }
+    }
+    o.series.forEach(s => {
+      let d = '', pen = false;
+      s.values.forEach((v, i) => { if (!Number.isFinite(v)) { pen = false; return; } d += (pen ? 'L' : 'M') + X(i).toFixed(1) + ',' + Y(v).toFixed(1); pen = true; });
+      if (s.line !== false && d) el('path', { d, fill: 'none', stroke: s.color, 'stroke-width': s.width || 2, 'stroke-dasharray': s.dash || 'none', 'stroke-linejoin': 'round', 'stroke-linecap': 'round' }, svg);
+      if (s.dots) s.values.forEach((v, i) => {
+        if (!Number.isFinite(v)) return;
+        const hol = o.hollow && o.hollow.has(i);
+        el('circle', { cx: X(i), cy: Y(v), r: hol ? 4 : 3.2, fill: hol ? 'var(--surface)' : s.color, stroke: hol ? 'var(--bad)' : 'var(--surface)', 'stroke-width': hol ? 1.6 : 1 }, svg);
+      });
+    });
+    const guide = el('line', { x1: 0, x2: 0, y1: m.t, y2: m.t + ih, stroke: 'var(--axis)', 'stroke-width': 1, visibility: 'hidden' }, svg);
+    const hit = el('rect', { x: m.l, y: m.t, width: iw, height: ih, fill: 'transparent' }, svg);
+    const move = e => {
+      const r = svg.getBoundingClientRect(), sx = (e.clientX - r.left) * W / r.width;
+      const i = Math.min(n - 1, Math.max(0, Math.floor((sx - m.l) / (iw / n))));
+      guide.setAttribute('x1', X(i)); guide.setAttribute('x2', X(i)); guide.setAttribute('visibility', 'visible');
+      showTip(host, o.tip(i), X(i) * r.width / W, (e.clientY - r.top));
+    };
+    hit.addEventListener('pointermove', move); hit.addEventListener('pointerdown', move);
+    hit.addEventListener('pointerleave', () => { guide.setAttribute('visibility', 'hidden'); hideTip(); });
+  };
+  charts.push(draw); draw();
+}
+
+function scatterChart(host, o) {
+  const draw = () => {
+    host.innerHTML = '';
+    const W = Math.max(300, host.clientWidth || 500), H = W < 560 ? 260 : 300, m = { l: 62, r: 14, t: 12, b: 42 };
+    const iw = W - m.l - m.r, ih = H - m.t - m.b;
+    const xs = o.xs, ys = o.ys; if (!xs.length) return;
+    const lx = o.line ? [o.line[0], o.line[2]] : []; // la diagonal predicho = real no debe salirse del área
+    const xt = ticks(Math.min(...xs, ...lx), Math.max(...xs, ...lx), W < 560 ? 4 : 5), yt = ticks(Math.min(...ys, ...(o.line ? [o.line[1], o.line[3]] : [])), Math.max(...ys, ...(o.line ? [o.line[1], o.line[3]] : [])), 5);
+    const X = v => m.l + (v - xt[0]) / (xt[xt.length - 1] - xt[0]) * iw, Y = v => m.t + ih - (v - yt[0]) / (yt[yt.length - 1] - yt[0]) * ih;
+    const svg = el('svg', { viewBox: `0 0 ${W} ${H}`, role: 'img', 'aria-label': o.aria || 'Dispersión' }, host);
+    yt.forEach(v => { el('line', { x1: m.l, x2: W - m.r, y1: Y(v), y2: Y(v), stroke: 'var(--grid)' }, svg); const t = el('text', { x: m.l - 8, y: Y(v) + 4, 'text-anchor': 'end' }, svg); t.textContent = fmt(v, o.ydec || 0); });
+    xt.forEach(v => { const t = el('text', { x: X(v), y: m.t + ih + 16, 'text-anchor': 'middle' }, svg); t.textContent = fmt(v, o.xdec || 0); });
+    el('line', { x1: m.l, x2: W - m.r, y1: m.t + ih, y2: m.t + ih, stroke: 'var(--axis)' }, svg);
+    const xtT = el('text', { x: m.l + iw / 2, y: H - 4, 'text-anchor': 'middle' }, svg); xtT.textContent = o.xTitle;
+    if (o.line) el('line', { x1: X(o.line[0]), y1: Y(o.line[1]), x2: X(o.line[2]), y2: Y(o.line[3]), stroke: 'var(--s2)', 'stroke-width': 2, 'stroke-dasharray': o.lineDash || 'none' }, svg);
+    xs.forEach((x, i) => {
+      const c = el('circle', { cx: X(x), cy: Y(ys[i]), r: 4.2, fill: 'var(--s1)', stroke: 'var(--surface)', 'stroke-width': 1.2 }, svg);
+      const show = e => { const r = svg.getBoundingClientRect(); showTip(host, o.tip(i), X(x) * r.width / W, Y(ys[i]) * r.height / H); };
+      c.addEventListener('pointerenter', show); c.addEventListener('pointerdown', show); c.addEventListener('pointerleave', hideTip);
+    });
+  };
+  charts.push(draw); draw();
+}
+let rz; new ResizeObserver(() => { clearTimeout(rz); rz = setTimeout(() => charts.forEach(f => f()), 120); }).observe(document.querySelector('main .wrap'));
+
+/* ---------- paso 1: datos ---------- */
+function renderDatos() {
+  const p = $('#p-datos'), ds = D.ds;
+  const msgs = [];
+  if (ds.errors.length) msgs.push(`<div class="note bad"><strong>Revise estos datos (${ds.errors.length})</strong><ul>${ds.errors.slice(0, 8).map(e => `<li>${esc(e)}</li>`).join('')}</ul>${ds.errors.length > 8 ? '<span class="small">…y más.</span>' : ''}</div>`);
+  if (ds.warnings.length) msgs.push(`<div class="note warn"><strong>Avisos</strong><ul>${ds.warnings.slice(0, 6).map(e => `<li>${esc(e)}</li>`).join('')}</ul></div>`);
+  const ms = ds.months;
+  const head = `<div class="panel-head"><div class="eyebrow">Paso 1 · Información del Taller 1</div><h2>Datos del edificio</h2>
+    <p class="muted">Use la facturación mensual que pidió a la Oficina de Gestión Ambiental y las variables que identificó en el Taller 2. Se recomiendan al menos 36 meses.</p></div>`;
+  const load = `<div class="section">
+    <h3>Cargar sus datos</h3>
+    <p class="small muted">La primera fila lleva los encabezados. Columnas, en este orden: <b>Mes</b> (AAAA-MM, por ejemplo 2023-04) · <b>kWh facturados</b> · <b>Días facturados</b> · y después una columna por cada variable relevante, con su unidad en el encabezado. Acepta coma o punto decimal.</p>
+    <div class="row">
+      <button class="btn primary" id="bPaste">${S.pasteOpen ? 'Cerrar pegado' : 'Pegar desde Excel'}</button>
+      <button class="btn" id="bFile">Subir archivo (.xlsx o .csv)</button>
+      <input type="file" id="fileIn" accept=".xlsx,.xls,.csv,.txt" hidden>
+      ${DL ? '<button class="btn" id="bTpl">Descargar plantilla .xlsx</button>' : '<button class="btn" id="bTplCopy">Copiar encabezados de la plantilla</button>'}
+      ${S.source !== 'ejemplo' ? '<button class="btn ghost" id="bExample">Volver al ejemplo</button>' : ''}
+    </div>
+    <div id="pasteBox" ${S.pasteOpen ? '' : 'hidden'} style="display:grid;gap:8px">
+      <textarea id="pasteTa" placeholder="Copie en Excel el rango completo, con encabezados, y péguelo aquí (Ctrl+V)."></textarea>
+      <div class="row"><button class="btn primary" id="bUse">Usar estos datos</button><span class="small muted">Reemplaza los datos actuales. Se guardan solo en este navegador.</span></div>
+    </div>
+    ${msgs.join('')}
+  </div>`;
+  let body = '';
+  if (ms.length) {
+    const avg = LB.mean(ms.map(m => m.norm));
+    body = `<div class="section">
+      <div class="tbl-tools"><h3>Consumo mensual normalizado a 30 días</h3><div class="legend"><span><i class="line" style="background:var(--s1)"></i>kWh normalizados</span><span><i class="line" style="background:var(--s2)"></i>kWh facturados</span></div></div>
+      <div class="stats">
+        <div class="stat"><b>${ms.length}</b><span>meses cargados</span></div>
+        <div class="stat"><b>${monthLabel(ms[0].ym)} – ${monthLabel(ms[ms.length - 1].ym)}</b><span>rango de datos</span></div>
+        <div class="stat"><b>${fmt(avg)}</b><span>kWh/mes promedio (normalizado)</span></div>
+        <div class="stat"><b>${ds.varNames.length}</b><span>variable${ds.varNames.length === 1 ? '' : 's'} relevante${ds.varNames.length === 1 ? '' : 's'}</span></div>
+      </div>
+      <div class="chart" id="chDatos"></div>
+      <p class="small muted">Normalizado = kWh facturados ÷ días facturados × 30 (ecuación 1 del anexo). Así un periodo de 33 días no parece un mes de alto consumo.</p>
+    </div>
+    <div class="section">
+      <div class="tbl-tools"><h3>Tabla de datos</h3>${copyBtn('tDatos')}</div>
+      <div class="tbl-wrap tall"><table id="tDatos"><thead><tr><th>Mes</th><th>kWh facturados</th><th>Días facturados</th><th>kWh normalizados</th>${ds.varNames.map(v => `<th>${esc(v)}</th>`).join('')}</tr></thead>
+      <tbody>${ms.map(m => `<tr><td>${monthLabel(m.ym)}</td><td>${fmt(m.kwh)}</td><td>${fmt(m.dias)}</td><td class="hi">${fmt(m.norm)}</td>${ds.varNames.map(v => `<td>${m.vars[v] === null ? '—' : fmt(m.vars[v], decOf(v))}</td>`).join('')}</tr>`).join('')}</tbody></table></div>
+    </div>`;
+  } else body = `<div class="section"><h3>Aún no hay datos</h3><p class="muted">Pegue su tabla o suba un archivo para empezar. Mientras tanto puede volver al ejemplo.</p></div>`;
+  p.innerHTML = head + load + body;
+  if (ms.length) tsChart($('#chDatos'), {
+    labels: ms.map(m => m.ym), aria: 'Consumo mensual normalizado y facturado',
+    series: [{ values: ms.map(m => m.kwh), color: 'var(--s2)', width: 1.5, dash: '4 3' }, { values: ms.map(m => m.norm), color: 'var(--s1)', dots: true }],
+    tip: i => { const m = ms[i]; return `<div>${monthLabel(m.ym)}</div><div>Normalizado: <b>${fmt(m.norm)}</b> kWh</div><div class="muted">Facturado: ${fmt(m.kwh)} kWh en ${fmt(m.dias)} días</div>`; }
+  });
+  $('#bPaste').onclick = () => { S.pasteOpen = !S.pasteOpen; render(); if (S.pasteOpen) $('#pasteTa').focus(); };
+  $('#bFile').onclick = () => $('#fileIn').click();
+  $('#fileIn').onchange = e => readFile(e.target.files[0]);
+  if ($('#bUse')) $('#bUse').onclick = () => { const txt = $('#pasteTa').value; if (!txt.trim()) { toast('Pegue primero la tabla.'); return; } useMatrix(LB.splitText(txt), 'pegado'); };
+  if ($('#bExample')) $('#bExample').onclick = () => { const keep = S.step; S = fresh(EXAMPLE, 'ejemplo'); S.step = keep; commit(); };
+  if ($('#bTpl')) $('#bTpl').onclick = downloadTemplate;
+  if ($('#bTplCopy')) $('#bTplCopy').onclick = () => copyText(['Mes', 'kWh facturados', 'Días facturados', 'Variable 1 (unidad)', 'Variable 2 (unidad)'].join('\t'), 'Encabezados copiados. Péguelos en la fila 1 de Excel.');
+}
+function decOf(v) { const vals = D.months.map(m => m.vars[v]).filter(Number.isFinite); return vals.some(x => Math.abs(x % 1) > 1e-9) ? 1 : 0; }
+function useMatrix(matrix, source) {
+  const ds = LB.buildDataset(matrix);
+  if (!ds.months.length) { toast(ds.errors[0] || 'No encontré datos válidos.'); S.matrix = matrix; S.source = source; S.pasteOpen = true; commit(); return; }
+  const name = S.source === 'ejemplo' ? '' : S.name;
+  S = { ...fresh({ name, matrix }, source), step: 'datos' };
+  commit(); toast(`${ds.months.length} meses cargados.`);
+}
+function readFile(f) {
+  if (!f) return;
+  const rd = new FileReader();
+  if (/\.(xlsx|xls)$/i.test(f.name)) {
+    if (!xlsxReady()) { toast('No se pudo cargar el lector de Excel. Copie y pegue la tabla.'); return; }
+    rd.onload = () => { try { const wb = XLSX.read(rd.result, { type: 'array', cellDates: true }); const sh = wb.Sheets[wb.SheetNames[0]]; useMatrix(XLSX.utils.sheet_to_json(sh, { header: 1, raw: true, defval: '' }), 'archivo'); } catch { toast('No pude leer ese archivo de Excel.'); } };
+    rd.readAsArrayBuffer(f);
+  } else { rd.onload = () => useMatrix(LB.splitText(rd.result), 'archivo'); rd.readAsText(f); }
+}
+function downloadTemplate() {
+  if (!xlsxReady()) { toast('No se pudo preparar el archivo. Copie los encabezados.'); return; }
+  const aoa = [['Mes', 'kWh facturados', 'Días facturados', 'Variable 1 (unidad)', 'Variable 2 (unidad)'], ['2022-01', 15770, 32, '', ''], ['2022-02', 20769, 31, '', ''], ['2022-03', 24689, 28, '', '']];
+  const wb = XLSX.utils.book_new(); const ws = XLSX.utils.aoa_to_sheet(aoa); ws['!cols'] = [{ wch: 10 }, { wch: 16 }, { wch: 16 }, { wch: 22 }, { wch: 22 }];
+  XLSX.utils.book_append_sheet(wb, ws, 'Datos');
+  saveFile('plantilla_linea_base.xlsx', XLSX.write(wb, { type: 'array', bookType: 'xlsx' }));
+}
+
+/* ---------- paso 2: periodo base ---------- */
+function renderPeriodo() {
+  const p = $('#p-periodo'), ms = D.months;
+  if (!ms.length) { p.innerHTML = emptyPanel('Paso 2', 'Periodo base'); return; }
+  const ex = new Set(S.excluded);
+  const nIn = D.inPeriod.length, nEx = D.inPeriod.filter(m => ex.has(m.ym)).length, nUse = D.base.length;
+  const counts = Array(12).fill(0); D.base.forEach(m => counts[LB.monthOf(m.ym) - 1]++);
+  const few = counts.map((c, i) => c < 3 ? MES_CAP[i] : null).filter(Boolean);
+  const notes = [];
+  if (nUse < 36) notes.push(`<div class="note warn"><strong>El periodo base tiene ${nUse} meses utilizables.</strong><span>Con datos mensuales, la resolución recomienda al menos 3 años (36 meses). Si no hay más, explique la limitación en el informe.</span></div>`);
+  else notes.push(`<div class="note ok"><strong>${nUse} meses utilizables.</strong><span>Cumple la recomendación de al menos 36 meses.</span></div>`);
+  if (few.length) notes.push(`<div class="note info"><strong>Meses calendario con menos de 3 valores: ${few.join(', ')}.</strong><span>Los modelos de valor absoluto y de cociente promedian cada mes calendario; el anexo sugiere al menos tres valores del mismo mes.</span></div>`);
+  const opt = sel => ms.map(m => `<option value="${m.ym}" ${m.ym === sel ? 'selected' : ''}>${monthLabel(m.ym)}</option>`).join('');
+  const years = [...new Set(ms.map(m => m.ym.slice(0, 4)))];
+  const byKey = Object.fromEntries(ms.map(m => [m.ym, m]));
+  const cal = `<div class="cal" role="grid" aria-label="Calendario de meses del periodo base">
+    <div></div>${MES_CAP.map(m => `<div class="h">${m}</div>`).join('')}
+    ${years.map(y => `<div class="y">${y}</div>${MES_CAP.map((_, i) => {
+      const k = `${y}-${String(i + 1).padStart(2, '0')}`, m = byKey[k];
+      if (!m) return `<div class="cal-cell empty" aria-disabled="true">—</div>`;
+      const inP = k >= S.baseFrom && k <= S.baseTo, isEx = ex.has(k);
+      return `<button class="cal-cell ${inP ? (isEx ? 'ex' : 'in') : 'outp'}" data-ym="${k}" ${inP ? '' : 'disabled'} aria-pressed="${isEx}" title="${inP ? (isEx ? 'Excluido. Clic para incluir' : 'Clic para excluir') : 'Fuera del periodo base'}">${fmt(m.norm / 1000, 1)}k</button>`;
+    }).join('')}`).join('')}
+  </div>`;
+  p.innerHTML = `<div class="panel-head"><div class="eyebrow">Paso 2 · Pasos 2 y 3 de la resolución</div><h2>Periodo base</h2>
+    <p class="muted">Elija meses consecutivos sin cambios permanentes en el uso, la ocupación o los equipos del edificio. Excluya los meses con eventos temporales (cierres, paros, obras) que no representan el funcionamiento habitual.</p></div>
+    <div class="section">
+      <div class="row">
+        <label class="field">Desde <select id="sFrom">${opt(S.baseFrom)}</select></label>
+        <label class="field">Hasta <select id="sTo">${opt(S.baseTo)}</select></label>
+      </div>
+      <div class="stats">
+        <div class="stat"><b>${nIn}</b><span>meses en el periodo</span></div>
+        <div class="stat"><b>${nEx}</b><span>meses excluidos</span></div>
+        <div class="stat"><b>${nUse}</b><span>meses utilizables</span></div>
+        <div class="stat"><b>${fmt(D.y.length ? LB.mean(D.y) : NaN)}</b><span>kWh/mes promedio</span></div>
+      </div>
+      ${notes.join('')}
+    </div>
+    <div class="section">
+      <div class="tbl-tools"><h3>Meses del periodo base</h3><div class="legend"><span><i style="background:var(--accent-soft);border:1px solid var(--accent)"></i>incluido</span><span><i style="background:var(--bad-bg);border:1px solid var(--bad)"></i>excluido</span><span><i style="background:var(--surface);border:1px solid var(--line)"></i>fuera del periodo</span></div></div>
+      <p class="small muted">Cada celda muestra el consumo normalizado en miles de kWh. Haga clic en un mes para excluirlo o volver a incluirlo.</p>
+      <div class="tbl-wrap" style="border:0">${cal}</div>
+      ${nEx ? `<p class="small">Excluidos: ${D.inPeriod.filter(m => ex.has(m.ym)).map(m => monthLabel(m.ym)).join(', ')}. Anote en el informe el motivo de cada uno.</p>` : ''}
+    </div>
+    <div class="section">
+      <div class="tbl-tools"><h3>Serie con el periodo base</h3><div class="legend"><span><i style="background:var(--shade);border:1px solid var(--accent)"></i>periodo base</span><span><i class="line" style="background:var(--s1)"></i>kWh normalizados</span><span><i style="background:var(--surface);border:1.5px solid var(--bad);border-radius:50%;width:10px"></i>excluido</span></div></div>
+      <div class="chart" id="chPer"></div>
+    </div>`;
+  const idx = k => ms.findIndex(m => m.ym === k);
+  tsChart($('#chPer'), {
+    labels: ms.map(m => m.ym), shade: [idx(S.baseFrom), idx(S.baseTo)], hollow: new Set(ms.map((m, i) => ex.has(m.ym) ? i : -1)), aria: 'Serie mensual con el periodo base sombreado',
+    series: [{ values: ms.map(m => m.norm), color: 'var(--s1)', dots: true }],
+    tip: i => { const m = ms[i], inP = m.ym >= S.baseFrom && m.ym <= S.baseTo; return `<div>${monthLabel(m.ym)}</div><div><b>${fmt(m.norm)}</b> kWh normalizados</div><div class="muted">${!inP ? 'Fuera del periodo base' : ex.has(m.ym) ? 'Excluido' : 'En el periodo base'}</div>`; }
+  });
+  $('#sFrom').onchange = e => { S.baseFrom = e.target.value; if (S.baseFrom > S.baseTo) S.baseTo = S.baseFrom; commit(); };
+  $('#sTo').onchange = e => { S.baseTo = e.target.value; if (S.baseTo < S.baseFrom) S.baseFrom = S.baseTo; commit(); };
+  p.querySelectorAll('.cal-cell[data-ym]').forEach(b => b.onclick = () => { const k = b.dataset.ym; const set = new Set(S.excluded); set.has(k) ? set.delete(k) : set.add(k); S.excluded = [...set].sort(); commit(); });
+}
+
+/* ---------- paso 3: modelos ---------- */
+function yearsInBase() { return [...new Set(D.base.map(m => m.ym.slice(0, 4)))]; }
+function monthTable(id, model, valDec, valLabel, unit) {
+  const ys = yearsInBase();
+  return `<div class="tbl-wrap"><table id="${id}"><thead><tr><th>Mes</th>${ys.map(y => `<th>${y}</th>`).join('')}<th>Promedio inicial</th><th>Datos usados</th><th>${valLabel}</th></tr></thead><tbody>
+  ${model.months.map((mm, i) => {
+    const byY = Object.fromEntries(mm.values.map(v => [v.ym.slice(0, 4), v]));
+    return `<tr><td>${MES_CAP[i]}</td>${ys.map(y => { const v = byY[y]; return `<td>${v ? (v.out ? `<span class="out" title="Fuera de ±10 % del promedio">${fmt(v.v, valDec)}</span>` : fmt(v.v, valDec)) : '—'}</td>`; }).join('')}
+      <td>${fmt(mm.avg0, valDec)}</td><td>${mm.kept}${mm.dispersion ? ' ⚠' : ''}</td><td class="hi">${fmt(mm.value, valDec)}</td></tr>`;
+  }).join('')}</tbody></table></div><p class="small muted">Tachado: valor fuera de ±10 % del promedio de su mes, retirado antes de recalcular. ⚠: todos los valores del mes quedaron fuera; se conservaron por dispersión alta. Unidades: ${unit}.</p>`;
+}
+function modelChart(host, pred, band, label) {
+  const b = D.base;
+  tsChart(host, {
+    labels: b.map(m => m.ym), band, aria: 'Consumo real frente al modelo en el periodo base',
+    series: [{ values: D.y, color: 'var(--s1)', dots: true, line: false }, { values: pred, color: 'var(--s2)', width: 2 }],
+    tip: i => { const r = D.y[i], q = pred[i]; return `<div>${monthLabel(b[i].ym)}</div><div>Real: <b>${fmt(r)}</b> kWh</div><div>${label}: <b>${fmt(q)}</b> kWh</div><div class="muted">Diferencia: ${Number.isFinite(q) ? pct((r - q) / r) : '—'}</div>${band && Number.isFinite(band.lo[i]) ? `<div class="muted">Banda ±2σ: ${fmt(band.lo[i])} a ${fmt(band.hi[i])}</div>` : ''}`; }
+  });
+}
+const legendModel = (lbl, band) => `<div class="legend"><span><i style="background:var(--s1);border-radius:50%;width:9px;height:9px"></i>real (normalizado)</span><span><i class="line" style="background:var(--s2)"></i>${lbl}</span>${band ? '<span><i style="background:var(--band)"></i>LBEn ± 2σ</span>' : ''}</div>`;
+
+function renderModelos() {
+  const p = $('#p-modelos');
+  if (!D.base || D.base.length < 3) { p.innerHTML = emptyPanel('Paso 3', 'Modelos', 'Se necesitan al menos 3 meses utilizables en el periodo base.'); return; }
+  const tabs = [['abs', 'Valor absoluto', '7.4.1'], ['ratio', 'Cociente', '7.4.2'], ['reg', 'Estadístico', '7.4.3']];
+  p.innerHTML = `<div class="panel-head"><div class="eyebrow">Paso 3 · Paso 4 de la resolución: seleccionar el modelo</div><h2>Modelos de línea base</h2>
+    <p class="muted">Calcule los tres modelos con su periodo base (${D.base.length} meses, ${monthLabel(S.baseFrom)} a ${monthLabel(S.baseTo)}) y compárelos. El modelo de ingeniería o simulación (7.4.4) no aplica cuando ya hay facturación histórica.</p></div>
+    <div class="subtabs" role="tablist">${tabs.map(([k, l, n]) => `<button class="subtab" role="tab" data-sub="${k}" aria-selected="${S.sub === k}">${l}<small>${n}</small></button>`).join('')}</div>
+    <div id="subBody" class="panel"></div>
+    ${fitSection()}`;
+  p.querySelectorAll('.subtab').forEach(b => b.onclick = () => { S.sub = b.dataset.sub; save(); render(); });
+  const box = $('#subBody');
+  if (S.sub === 'abs') renderAbs(box); else if (S.sub === 'ratio') renderRatio(box); else renderReg(box);
+}
+
+/* CV(RMSE) y NMBE de los tres modelos sobre el periodo base (dentro de la muestra). */
+function fitSection() {
+  const av = modelAvail();
+  const rows = [
+    { k: 'abs', name: 'Valor absoluto', num: '7.4.1', f: D.fitm.abs, extra: '' },
+    { k: 'ratio', name: 'Cociente', num: '7.4.2', f: D.fitm.ratio, extra: D.ratio ? `«${esc(S.ratioVar)}»` : 'sin variables' },
+    { k: 'reg', name: 'Estadístico', num: '7.4.3', f: D.fitm.reg, extra: av.reg ? S.regVars.map(esc).join(', ') : 'sin regresión válida' }
+  ];
+  const noDf = rows.some(r => r.f && r.f.df < 1);
+  return `<div class="section">
+    <div class="tbl-tools"><h3>Ajuste en el periodo base: CV(RMSE) y NMBE</h3>${copyBtn('tFit')}</div>
+    <p class="small muted">Se calculan con los meses del periodo base que usa cada modelo: y es el consumo normalizado a 30 días e ŷ lo que el modelo predice para ese mes. El denominador n − p descuenta los parámetros que el modelo estimó con esos mismos meses.</p>
+    <div class="tbl-wrap"><table id="tFit"><thead><tr><th>Modelo</th><th>CV(RMSE)</th><th>NMBE</th><th>Meses (n)</th><th>Parámetros (p)</th><th>n − p</th></tr></thead><tbody>
+    ${rows.map(r => `<tr${r.k === S.sub ? ' class="cur"' : ''}><td class="txt wrapc">${r.name} <span class="muted small mono">${r.num}</span>${r.extra ? `<span class="muted small"> · ${r.extra}</span>` : ''}</td>${r.f ? `<td class="hi">${pc(r.f.cvrmse)}</td><td class="hi">${pc(r.f.nmbe)}</td><td>${r.f.n}</td><td>${r.f.p}</td><td>${r.f.df}</td>` : '<td>—</td><td>—</td><td>—</td><td>—</td><td>—</td>'}</tr>`).join('')}
+    </tbody></table></div>
+    <p class="small muted">p: en valor absoluto, un promedio por cada mes calendario con LBEn; en el cociente, un cociente por cada mes calendario; en el estadístico, los coeficientes incluida la intercepción.${noDf ? ' Con n − p menor que 1 las métricas no se pueden calcular.' : ''}</p>
+    <p class="small">Con mínimos cuadrados e intercepto, el NMBE dentro de la muestra da cero por construcción; el sesgo se evalúa con meses que no se usaron para ajustar. En valor absoluto pasa lo mismo si el filtro de ±10 % no retiró datos, porque cada LBEn es un promedio.</p>
+    <p class="small muted">Referencia orientativa: ASHRAE Guideline 14 usa, para datos mensuales, CV(RMSE) ≤ 15 % y NMBE dentro de ±5 %. Es un criterio para calibrar modelos de energía; la Res. UPME 016 no lo exige.</p>
+  </div>`;
+}
+
+function bandFor(model) {
+  if (!model.conf.applies) return null;
+  const s = model.conf.sigma;
+  return { lo: model.pred.map(v => v - 2 * s), hi: model.pred.map(v => v + 2 * s) };
+}
+function renderAbs(box) {
+  const a = D.abs, out = a.months.reduce((s, m) => s + m.values.filter(v => v.out).length, 0), e = D.err.abs;
+  const band = bandFor(a);
+  box.innerHTML = `<div class="section">
+      <h3>Medición del valor absoluto de energía</h3>
+      <p class="small muted">Sirve cuando solo hay consumo mensual o ninguna variable explica el consumo. La línea base de cada mes es el promedio de ese mes en los años del periodo base.</p>
+      <div class="stats">
+        <div class="stat"><b>${a.conf.N}</b><span>datos usados</span></div>
+        <div class="stat"><b>${out}</b><span>retirados por ±10 %</span></div>
+        <div class="stat"><b>${fmt(a.conf.sigma)}</b><span>σ de los datos usados (kWh)</span></div>
+        <div class="stat"><b>${pct(e.mape)}</b><span>error medio frente al real</span></div>
+      </div>
+      ${a.conf.applies ? '' : '<div class="note info"><span>Con menos de 10 datos no se calcula el intervalo LBEn ± 2σ.</span></div>'}
+      <div class="tbl-tools"><h3>Real frente a la LBEn mensual</h3>${legendModel('LBEn del mes', !!band)}</div>
+      <div class="chart" id="chAbs"></div>
+    </div>
+    <div class="section"><div class="tbl-tools"><h3>Cálculo por mes calendario</h3>${copyBtn('tAbs')}</div>${monthTable('tAbs', a, 0, 'LBEn (kWh/mes)', 'kWh/mes normalizados')}</div>`;
+  modelChart($('#chAbs'), a.pred, band, 'LBEn');
+}
+function renderRatio(box) {
+  const vars = D.varNames;
+  if (!vars.length) { box.innerHTML = `<div class="section"><h3>Cociente</h3><p class="muted">Este modelo necesita al menos una variable relevante. Agregue columnas de variables en el paso 1.</p></div>`; return; }
+  const r = D.ratio, e = D.err.ratio;
+  const out = r.months.reduce((s, m) => s + m.values.filter(v => v.out).length, 0);
+  const band = r.conf.applies ? { lo: D.base.map((m, i) => { const mm = r.months[LB.monthOf(m.ym) - 1].value, x = m.vars[r.varName]; return Number.isFinite(mm) && x > 0 ? (mm - 2 * r.conf.sigma) * x : NaN; }), hi: D.base.map((m, i) => { const mm = r.months[LB.monthOf(m.ym) - 1].value, x = m.vars[r.varName]; return Number.isFinite(mm) && x > 0 ? (mm + 2 * r.conf.sigma) * x : NaN; }) } : null;
+  box.innerHTML = `<div class="section">
+      <h3>Cociente de los valores medidos</h3>
+      <p class="small muted">Sirve cuando el consumo depende directamente de una sola variable. Se promedia el consumo por unidad de la variable para cada mes calendario; la LBEn del mes es ese cociente por el valor de la variable en el mes.</p>
+      <label class="field" style="max-width:420px">Variable relevante <select id="sRatio">${vars.map(v => `<option ${v === S.ratioVar ? 'selected' : ''}>${esc(v)}</option>`).join('')}</select></label>
+      ${r.skipped.length ? `<div class="note warn"><strong>${r.skipped.length} mes${r.skipped.length === 1 ? '' : 'es'} sin cociente.</strong><span>La variable vale cero o está vacía en ${r.skipped.map(k => monthLabel(k)).join(', ')}. Una variable que puede valer cero no sirve para este modelo; pruebe otra o use el modelo estadístico.</span></div>` : ''}
+      <div class="stats">
+        <div class="stat"><b>${r.conf.N}</b><span>cocientes usados</span></div>
+        <div class="stat"><b>${out}</b><span>retirados por ±10 %</span></div>
+        <div class="stat"><b>${fmt(r.conf.sigma, 2)}</b><span>σ del cociente (kWh por unidad)</span></div>
+        <div class="stat"><b>${pct(e.mape)}</b><span>error medio frente al real</span></div>
+      </div>
+      <div class="tbl-tools"><h3>Real frente a la LBEn por cociente</h3>${legendModel('LBEn (cociente × variable)', !!band)}</div>
+      <div class="chart" id="chRatio"></div>
+    </div>
+    <div class="section"><div class="tbl-tools"><h3>Cociente por mes calendario</h3>${copyBtn('tRatio')}</div>${monthTable('tRatio', r, 2, 'Cociente LBEn', 'kWh/mes por unidad de «' + esc(r.varName) + '»')}</div>`;
+  modelChart($('#chRatio'), r.pred, band, 'LBEn');
+  $('#sRatio').onchange = ev => { S.ratioVar = ev.target.value; commit(); };
+}
+
+function regTables(fit, id) {
+  const a = fit.anova;
+  return `<div style="display:grid;gap:14px">
+    <div class="tbl-wrap" style="max-width:520px"><table id="${id}-s"><thead><tr><th colspan="2">Estadísticas de la regresión</th></tr></thead><tbody>
+      <tr><td class="txt">Coeficiente de correlación múltiple</td><td>${fmt(fit.r, 4)}</td></tr>
+      <tr><td class="txt">Coeficiente de determinación R²</td><td class="hi">${fmt(fit.r2, 4)}</td></tr>
+      <tr><td class="txt">R² ajustado</td><td>${fmt(fit.r2adj, 4)}</td></tr>
+      <tr><td class="txt">Error típico</td><td>${fmt(fit.seReg, 2)}</td></tr>
+      <tr><td class="txt">Observaciones</td><td>${fit.n}</td></tr></tbody></table></div>
+    <div class="tbl-wrap"><table id="${id}-a"><thead><tr><th>Análisis de varianza</th><th>Grados de libertad</th><th>Suma de cuadrados</th><th>Promedio de los cuadrados</th><th>F</th><th>Valor crítico de F</th></tr></thead><tbody>
+      <tr><td class="txt">Regresión</td><td>${fit.k}</td><td>${fmt(a.ssr)}</td><td>${fmt(a.msr)}</td><td>${fmt(a.F, 3)}</td><td>${fmtP(a.sigF)}</td></tr>
+      <tr><td class="txt">Residuos</td><td>${fit.dfRes}</td><td>${fmt(a.sse)}</td><td>${fmt(a.mse)}</td><td></td><td></td></tr>
+      <tr><td class="txt">Total</td><td>${fit.n - 1}</td><td>${fmt(a.sst)}</td><td></td><td></td><td></td></tr></tbody></table></div>
+  </div>
+  <div class="tbl-wrap"><table id="${id}-c"><thead><tr><th>Variable</th><th>Coeficientes</th><th>Error típico</th><th>Estadístico t</th><th>Probabilidad (p-value)</th><th>Inferior 95 %</th><th>Superior 95 %</th></tr></thead><tbody>
+    ${fit.coefs.map((c, j) => `<tr><td class="txt">${esc(c.name)}</td><td>${fmt(c.b, 3)}</td><td>${fmt(c.se, 3)}</td><td>${fmt(c.t, 3)}</td><td class="${j === 0 ? '' : c.p > 0.05 ? 'pbad' : 'pok'}">${fmtP(c.p)}${j === 0 ? '' : c.p > 0.05 ? ' · retirar' : ' · significativa'}</td><td>${fmt(c.lo, 3)}</td><td>${fmt(c.hi, 3)}</td></tr>`).join('')}
+  </tbody></table></div>`;
+}
+function equation(fit) {
+  if (!fit || fit.error) return '—';
+  const [b0, ...rest] = fit.coefs;
+  return `E (kWh/mes) = ${fmt(b0.b, 2)}${rest.map(c => ` ${c.b < 0 ? '−' : '+'} ${fmt(Math.abs(c.b), 3)} × [${esc(c.name)}]`).join('')}`;
+}
+function renderReg(box) {
+  const vars = D.varNames, fit = D.reg, e = D.err.reg;
+  const incomplete = vars.filter(v => !D.complete.includes(v));
+  let res;
+  if (!vars.length) res = `<p class="muted">Este modelo necesita variables relevantes. Agregue columnas de variables en el paso 1.</p>`;
+  else if (!S.regVars.length) res = `<div class="note info"><span>Marque al menos una variable para correr la regresión.</span></div>`;
+  else if (fit.error) res = `<div class="note bad"><strong>No se pudo calcular.</strong><span>${esc(fit.error)}</span></div>`;
+  else {
+    const bad = fit.coefs.slice(1).filter(c => c.p > 0.05);
+    res = `${bad.length ? `<div class="note warn"><strong>${bad.length === 1 ? 'Una variable tiene' : bad.length + ' variables tienen'} p-value mayor que 0,05: ${bad.map(c => esc(c.name)).join(', ')}.</strong><span>Según la resolución, se retira la de mayor p-value y se vuelve a correr. Use «Retirar variables no significativas» o desmárquela usted.</span></div>` : `<div class="note ok"><strong>Todas las variables son significativas (p < 0,05).</strong><span>R² = ${fmt(fit.r2, 3)}: las variables explican el ${pct(fit.r2, 1)} de la variación del consumo en el periodo base.</span></div>`}
+      <div class="equation">${equation(fit)}</div>
+      <div class="stats">
+        <div class="stat"><b>${fmt(fit.r2, 3)}</b><span>R²</span></div>
+        <div class="stat"><b>${fmt(fit.r2adj, 3)}</b><span>R² ajustado</span></div>
+        <div class="stat"><b>${fmt(fit.seReg)}</b><span>error típico (kWh)</span></div>
+        <div class="stat"><b>${pct(e.mape)}</b><span>error medio frente al real</span></div>
+      </div>
+      ${regTables(fit, 'tReg')}
+      <div class="row">${copyBtn('tReg-c', 'Copiar coeficientes')}${copyBtn('tReg-s', 'Copiar estadísticas')}${copyBtn('tReg-a', 'Copiar ANOVA')}</div>`;
+  }
+  const log = S.regLog ? `<div class="section"><h3>Eliminación paso a paso</h3><ol class="small" style="margin:0;padding-left:20px;display:grid;gap:4px">${S.regLog.map(s => `<li>${s}</li>`).join('')}</ol></div>` : '';
+  box.innerHTML = `<div class="section">
+      <h3>Modelo estadístico (regresión lineal)</h3>
+      <p class="small muted">Relaciona el consumo normalizado con una o varias variables relevantes. Es lo mismo que hace Excel en Datos → Análisis de datos → Regresión, con nivel de confianza del 95 %.</p>
+      ${vars.length ? `<div class="row">${vars.map(v => { const ok = D.complete.includes(v); return `<label class="check" ${ok ? '' : 'title="Tiene meses vacíos en el periodo base"'}><input type="checkbox" data-var="${esc(v)}" ${S.regVars.includes(v) ? 'checked' : ''} ${ok ? '' : 'disabled'}>${esc(v)}</label>`; }).join('')}</div>
+      <div class="row"><button class="btn primary" id="bBack" ${S.regVars.length ? '' : 'disabled'}>Retirar variables no significativas (p > 0,05)</button><button class="btn ghost" id="bAll">Volver a marcar todas</button></div>` : ''}
+      ${incomplete.length ? `<p class="small muted">No disponibles por meses vacíos en el periodo base: ${incomplete.map(esc).join(', ')}.</p>` : ''}
+      ${res}
+    </div>
+    ${log}
+    ${fit && !fit.error && S.regVars.length ? `<div class="grid-2">
+      <div class="section"><div class="tbl-tools"><h3>Real frente al modelo</h3>${legendModel('modelo', false)}</div><div class="chart" id="chReg"></div></div>
+      <div class="section"><h3>${S.regVars.length === 1 ? 'Consumo frente a ' + esc(S.regVars[0]) : 'Predicho frente a real'}</h3><div class="chart" id="chSc"></div>
+      <p class="small muted">${S.regVars.length === 1 ? 'Cada punto es un mes del periodo base; la línea es la recta de regresión.' : 'Si el modelo es bueno, los puntos quedan cerca de la diagonal.'}</p></div>
+    </div>` : ''}`;
+  box.querySelectorAll('input[data-var]').forEach(cb => cb.onchange = () => { const v = cb.dataset.var; const set = new Set(S.regVars); cb.checked ? set.add(v) : set.delete(v); S.regVars = D.varNames.filter(x => set.has(x)); S.regLog = null; commit(); });
+  if ($('#bAll')) $('#bAll').onclick = () => { S.regVars = D.complete.slice(); S.regLog = null; commit(); };
+  if ($('#bBack')) $('#bBack').onclick = () => {
+    const cols = S.regVars.map(v => D.base.map(m => m.vars[v]));
+    const r = LB.backward(D.y, cols, S.regVars);
+    S.regLog = r.steps.map(s => s.fit.error ? esc(s.fit.error) : `Con ${s.names.length ? s.names.map(esc).join(', ') : 'solo la intercepción'}: R² = ${fmt(s.fit.r2, 3)}. ${s.removed ? `Se retira <b>${esc(s.removed.name)}</b> (p = ${fmtP(s.removed.p)}).` : (s.names.length ? 'Todas con p < 0,05: modelo final.' : 'Ninguna variable resultó significativa: use el modelo de valor absoluto.')}`);
+    S.regVars = r.names.slice(); commit();
+  };
+  if (fit && !fit.error && S.regVars.length) {
+    modelChart($('#chReg'), fit.yhat, null, 'Modelo');
+    if (S.regVars.length === 1) {
+      const xs = D.base.map(m => m.vars[S.regVars[0]]), b0 = fit.coefs[0].b, b1 = fit.coefs[1].b, mn = Math.min(...xs), mx = Math.max(...xs);
+      scatterChart($('#chSc'), { xs, ys: D.y, xTitle: S.regVars[0], line: [mn, b0 + b1 * mn, mx, b0 + b1 * mx], xdec: decOf(S.regVars[0]), tip: i => `<div>${monthLabel(D.base[i].ym)}</div><div>${esc(S.regVars[0])}: <b>${fmt(xs[i], decOf(S.regVars[0]))}</b></div><div>Consumo: <b>${fmt(D.y[i])}</b> kWh</div>` });
+    } else {
+      const mn = Math.min(...fit.yhat, ...D.y), mx = Math.max(...fit.yhat, ...D.y);
+      scatterChart($('#chSc'), { xs: fit.yhat, ys: D.y, xTitle: 'Consumo predicho por el modelo (kWh)', line: [mn, mn, mx, mx], lineDash: '5 4', tip: i => `<div>${monthLabel(D.base[i].ym)}</div><div>Predicho: <b>${fmt(fit.yhat[i])}</b> kWh</div><div>Real: <b>${fmt(D.y[i])}</b> kWh</div>` });
+    }
+  }
+}
+
+/* ---------- paso 4: línea base ---------- */
+function renderLben() {
+  const p = $('#p-lben');
+  if (!D.base || D.base.length < 3) { p.innerHTML = emptyPanel('Paso 4', 'Línea base', 'Se necesitan al menos 3 meses utilizables en el periodo base.'); return; }
+  const sel = S.model || D.suggest.model;
+  const regAvail = D.reg && !D.reg.error && S.regVars.length;
+  const cards = [
+    { k: 'abs', t: 'Valor absoluto', sub: '7.4.1', rows: [['Error medio', pct(D.err.abs.mape)], ['Meses con error > 10 %', D.err.abs.over10], ['Parámetros', '12 promedios mensuales']], ok: true },
+    { k: 'ratio', t: 'Cociente', sub: '7.4.2', rows: D.ratio ? [['Variable', esc(S.ratioVar)], ['Error medio', pct(D.err.ratio.mape)], ['Meses con error > 10 %', D.err.ratio.over10], ['Meses sin cociente', D.ratio.skipped.length]] : [['Estado', 'sin variables']], ok: !!D.ratio && !D.ratio.skipped.length },
+    { k: 'reg', t: 'Estadístico', sub: '7.4.3', rows: regAvail ? [['Variables', S.regVars.map(esc).join(', ')], ['R² / R² ajustado', `${fmt(D.reg.r2, 3)} / ${fmt(D.reg.r2adj, 3)}`], ['Error medio', pct(D.err.reg.mape)], ['Meses con error > 10 %', D.err.reg.over10]] : [['Estado', 'sin regresión válida']], ok: !!regAvail && D.regOk }
+  ];
+  cards.forEach(c => { const f = D.fitm[c.k]; if (f && (c.k !== 'reg' || regAvail)) c.rows.push(['CV(RMSE) / NMBE', `${pc(f.cvrmse)} / ${pc(f.nmbe)}`]); });
+  const reasons = [];
+  if (sel === 'reg' && !D.regOk) reasons.push('El modelo estadístico actual tiene variables con p > 0,05. Retírelas en el paso 3 antes de usarlo como línea base.');
+  if (sel === 'ratio' && D.ratio && D.ratio.skipped.length) reasons.push('El cociente no se puede calcular en algunos meses porque la variable vale cero.');
+  p.innerHTML = `<div class="panel-head"><div class="eyebrow">Paso 4 · Paso 5 de la resolución: construir la LBEn</div><h2>Línea base energética</h2>
+    <p class="muted">Elija el modelo y justifique la elección con los criterios de la resolución: datos disponibles, número de variables relevantes y su significancia (p-value). El error medio es una ayuda adicional para comparar.</p></div>
+    <div class="note info"><strong>Sugerencia de la herramienta: ${{ abs: 'valor absoluto', ratio: 'cociente', reg: 'estadístico' }[D.suggest.model]}.</strong><span>Porque ${esc(D.suggest.why)} La decisión y su justificación son suyas.</span></div>
+    <div class="model-pick" role="radiogroup" aria-label="Modelo de línea base">${cards.map(c => `<label class="pick"><span class="top"><input type="radio" name="mdl" value="${c.k}" ${sel === c.k ? 'checked' : ''}>${c.t} <span class="muted small mono">${c.sub}</span>${c.ok ? '' : ' <span class="chip warn">revisar</span>'}</span>${c.rows.map(r => `<span class="kv"><span>${r[0]}</span><b>${r[1]}</b></span>`).join('')}</label>`).join('')}</div>
+    ${reasons.map(r => `<div class="note warn"><span>${r}</span></div>`).join('')}
+    <div id="lbBody" class="panel"></div>`;
+  p.querySelectorAll('input[name="mdl"]').forEach(r => r.onchange = () => { S.model = r.value; commit(); });
+  const box = $('#lbBody');
+  const pred = sel === 'abs' ? D.abs.pred : sel === 'ratio' ? (D.ratio ? D.ratio.pred : []) : (regAvail ? D.reg.yhat : []);
+  let detail = '';
+  if (sel === 'abs') {
+    detail = `<div class="tbl-wrap"><table id="tLb"><thead><tr><th>Mes</th><th>LBEn (kWh/mes)</th><th>Datos usados</th>${D.abs.conf.applies ? '<th>Límite inferior (−2σ)</th><th>Límite superior (+2σ)</th>' : ''}</tr></thead><tbody>
+      ${D.abs.months.map((m, i) => `<tr><td>${MES_CAP[i]}</td><td class="hi">${fmt(m.value)}</td><td>${m.kept}</td>${D.abs.conf.applies ? `<td>${fmt(m.value - 2 * D.abs.conf.sigma)}</td><td>${fmt(m.value + 2 * D.abs.conf.sigma)}</td>` : ''}</tr>`).join('')}
+      </tbody><tfoot><tr><td>Total año</td><td>${fmt(D.abs.months.reduce((s, m) => s + (Number.isFinite(m.value) ? m.value : 0), 0))}</td><td>${D.abs.conf.N}</td>${D.abs.conf.applies ? '<td></td><td></td>' : ''}</tr></tfoot></table></div>
+      <p class="small muted">σ de todos los datos usados = ${fmt(D.abs.conf.sigma)} kWh (N = ${D.abs.conf.N}).</p>`;
+  } else if (sel === 'ratio' && D.ratio) {
+    detail = `<div class="tbl-wrap"><table id="tLb"><thead><tr><th>Mes</th><th>Cociente LBEn (kWh por unidad)</th><th>Datos usados</th></tr></thead><tbody>
+      ${D.ratio.months.map((m, i) => `<tr><td>${MES_CAP[i]}</td><td class="hi">${fmt(m.value, 3)}</td><td>${m.kept}</td></tr>`).join('')}</tbody></table></div>
+      <div class="equation">LBEn del mes (kWh) = cociente del mes × [${esc(S.ratioVar)} del mes]</div>`;
+  } else if (sel === 'reg' && regAvail) {
+    const ranges = S.regVars.map(v => { const xs = D.base.map(m => m.vars[v]); return `${esc(v)}: ${fmt(Math.min(...xs), decOf(v))} a ${fmt(Math.max(...xs), decOf(v))}`; });
+    detail = `<div class="equation">${equation(D.reg)}</div>
+      <div class="tbl-wrap"><table id="tLb"><thead><tr><th>Variable</th><th>Coeficiente</th><th>p-value</th></tr></thead><tbody>${D.reg.coefs.map(c => `<tr><td class="txt">${esc(c.name)}</td><td>${fmt(c.b, 3)}</td><td>${fmtP(c.p)}</td></tr>`).join('')}</tbody></table></div>
+      <p class="small muted">Rango de las variables en el periodo base (${ranges.join(' · ')}). Fuera de ese rango el modelo extrapola y pierde confiabilidad.</p>`;
+  } else detail = `<div class="note warn"><span>Este modelo no tiene un resultado válido con los datos actuales. Revise el paso 3.</span></div>`;
+
+  box.innerHTML = `<div class="grid-2">
+      <div class="section"><div class="tbl-tools"><h3>Línea base elegida</h3>${copyBtn('tLb')}</div>${detail}</div>
+      <div class="section"><div class="tbl-tools"><h3>Real frente a la LBEn</h3>${legendModel('LBEn', false)}</div><div class="chart" id="chLb"></div></div>
+    </div>
+    <div class="section">
+      <div class="tbl-tools"><h3>Texto para el informe</h3><button class="btn ghost" id="bCopySum">Copiar texto</button></div>
+      <div class="summary-text" id="sumText">${summary(sel).map(t => `<p>${t}</p>`).join('')}</div>
+      <p class="small muted">Es un borrador con sus cifras. Complete los motivos de las exclusiones y la justificación con sus propias palabras.</p>
+    </div>
+    <div class="section">
+      <h3>Exportar</h3>
+      <div class="row">${DL ? '<button class="btn primary" id="bXlsx">Descargar resultados .xlsx</button>' : ''}${copyBtn('tLb', 'Copiar tabla de la LBEn')}</div>
+      <p class="small muted">${DL ? 'El archivo trae una hoja por paso: datos, periodo base, los tres modelos, la línea base elegida y el seguimiento con CUSUM.' : 'Las descargas no están disponibles en esta vista; copie las tablas con los botones.'}</p>
+    </div>`;
+  if (pred.length) modelChart($('#chLb'), pred, null, 'LBEn');
+  $('#bCopySum').onclick = () => copyText($('#sumText').innerText);
+  if ($('#bXlsx')) $('#bXlsx').onclick = () => exportXlsx(sel);
+}
+
+function summary(sel) {
+  const ex = D.inPeriod.filter(m => S.excluded.includes(m.ym));
+  const out = [];
+  out.push(`El periodo base de ${esc(S.name || 'el edificio')} va de ${monthLabel(S.baseFrom)} a ${monthLabel(S.baseTo)}: ${D.inPeriod.length} meses${ex.length ? `, de los cuales ${ex.length === 1 ? 'se excluyó 1' : 'se excluyeron ' + ex.length} (${ex.map(m => monthLabel(m.ym)).join(', ')}) por [motivo]` : ''}. Quedan ${D.base.length} meses utilizables, con un consumo normalizado promedio de ${fmt(LB.mean(D.y))} kWh/mes.`);
+  if (sel === 'abs') {
+    const vals = D.abs.months.filter(m => Number.isFinite(m.value)), mx = vals.reduce((a, b) => b.value > a.value ? b : a), mn = vals.reduce((a, b) => b.value < a.value ? b : a);
+    const outN = D.abs.months.reduce((s, m) => s + m.values.filter(v => v.out).length, 0);
+    out.push(`Se eligió el modelo de medición del valor absoluto de energía (numeral 7.4.1 del Anexo de la Res. UPME 016 de 2024). La LBEn de cada mes es el promedio de ese mes en el periodo base; ${outN ? `se retiraron ${outN} valores por quedar fuera de ±10 % del promedio de su mes` : 'ningún valor quedó fuera de ±10 % del promedio de su mes'}.`);
+    out.push(`La LBEn mensual va de ${fmt(mn.value)} kWh (${MES_CAP[mn.mes - 1].toLowerCase()}) a ${fmt(mx.value)} kWh (${MES_CAP[mx.mes - 1].toLowerCase()}), con un total anual de ${fmt(vals.reduce((s, m) => s + m.value, 0))} kWh. La desviación estándar de los ${D.abs.conf.N} datos usados es ${fmt(D.abs.conf.sigma)} kWh.`);
+  } else if (sel === 'ratio' && D.ratio) {
+    const vals = D.ratio.months.filter(m => Number.isFinite(m.value));
+    out.push(`Se eligió el modelo de cociente de los valores medidos (numeral 7.4.2), con la variable «${esc(S.ratioVar)}». El cociente de cada mes calendario es el promedio de kWh por unidad de la variable en el periodo base, con el filtro de ±10 %. La LBEn de un mes se obtiene multiplicando ese cociente por el valor de la variable en el mes.`);
+    out.push(`Los cocientes mensuales van de ${fmt(Math.min(...vals.map(m => m.value)), 3)} a ${fmt(Math.max(...vals.map(m => m.value)), 3)} kWh por unidad. El error medio del modelo frente al consumo real del periodo base es ${pct(D.err.ratio.mape)}.`);
+  } else if (sel === 'reg' && D.reg && !D.reg.error) {
+    out.push(`Se eligió el modelo estadístico (numeral 7.4.3): una regresión lineal entre el consumo normalizado y ${S.regVars.length === 1 ? 'la variable' : 'las variables'} ${S.regVars.map(v => '«' + esc(v) + '»').join(', ')}, calculada con nivel de confianza del 95 %.`);
+    out.push(`La ecuación es ${equation(D.reg).replace('E (kWh/mes)', 'E')}. El R² es ${fmt(D.reg.r2, 3)} y el R² ajustado ${fmt(D.reg.r2adj, 3)}, con un error típico de ${fmt(D.reg.seReg)} kWh y ${D.reg.n} observaciones. ${D.regOk ? 'Todas las variables tienen p-value menor que 0,05' : 'Hay variables con p-value mayor que 0,05 que deben retirarse'} (${D.reg.coefs.slice(1).map(c => `${esc(c.name)}: p = ${fmtP(c.p)}`).join('; ')}).`);
+    const outV = D.complete.filter(v => !S.regVars.includes(v));
+    if (outV.length) out.push(`Se evaluaron y no se incluyeron: ${outV.map(v => '«' + esc(v) + '»').join(', ')}, por no ser significativas (p > 0,05).`);
+  }
+  return out;
+}
+
+/* ---------- paso 5: seguimiento con CUSUM ---------- */
+/* Periodo de reporte: todos los meses cargados posteriores al último mes del periodo base. */
+function tracking(sel) {
+  const items = D.months.filter(m => m.ym > S.baseTo);
+  if (!items.length) return { items, none: true };
+  const av = modelAvail();
+  let exp, why;
+  if (sel === 'abs') { exp = LB.predictAbsolute(D.abs, items); why = () => 'el periodo base no tiene LBEn para ese mes calendario'; }
+  else if (sel === 'ratio' && av.ratio) { exp = LB.predictRatio(D.ratio, items); why = () => `«${S.ratioVar}» está vacía o vale cero`; }
+  else if (sel === 'reg' && av.reg) { exp = LB.predictReg(D.reg, items); why = it => 'falta ' + S.regVars.filter(v => !Number.isFinite(it.vars[v])).map(v => `«${v}»`).join(', '); }
+  else return { items, invalid: true };
+  const res = LB.cusum(items, exp);
+  res.rows.forEach((r, i) => { if (!r.used) r.why = why(items[i]); });
+  return { items, res };
+}
+
+function renderSeguimiento() {
+  const p = $('#p-seguimiento');
+  if (!D.base || D.base.length < 3) { p.innerHTML = emptyPanel('Paso 5', 'Seguimiento (CUSUM)', 'Se necesitan al menos 3 meses utilizables en el periodo base.'); return; }
+  const sel = S.model || D.suggest.model, av = modelAvail(), T = tracking(sel);
+  const head = `<div class="panel-head"><div class="eyebrow">Paso 5 · Seguimiento del periodo de reporte</div><h2>Seguimiento (CUSUM)</h2>
+    <p class="muted">Compara el consumo de los meses posteriores al periodo base con lo que predice la línea base. La suma acumulada de las diferencias (CUSUM) muestra desde cuándo cambió el consumo y cuánta energía se ahorró o se consumió de más.</p></div>`;
+  if (T.none) { p.innerHTML = head + `<div class="section"><p>No hay meses después del periodo base (termina en ${monthLabel(S.baseTo)}): pegue datos que incluyan meses posteriores al periodo base, o termine antes el periodo base en el paso 2.</p></div>`; return; }
+  const picker = `<div class="row" role="radiogroup" aria-label="Modelo para el seguimiento"><span class="small muted">Modelo, el mismo del paso 4:</span>${[['abs', 'Valor absoluto'], ['ratio', 'Cociente'], ['reg', 'Estadístico']].map(([k, l]) => `<label class="check"><input type="radio" name="trk" value="${k}" ${sel === k ? 'checked' : ''} ${av[k] ? '' : 'disabled'}>${l}</label>`).join('')}</div>`;
+  const first = T.items[0].ym, last = T.items[T.items.length - 1].ym;
+  const period = `<p class="small muted">Periodo base: ${monthLabel(S.baseFrom)} a ${monthLabel(S.baseTo)} · periodo de reporte: ${monthLabel(first)} a ${monthLabel(last)} (${T.items.length} ${T.items.length === 1 ? 'mes' : 'meses'}).</p>`;
+  const warnReg = sel === 'reg' && av.reg && !D.regOk ? '<div class="note warn"><span>El modelo estadístico actual tiene variables con p > 0,05. Retírelas en el paso 3 antes de usarlo como referencia.</span></div>' : '';
+  if (T.invalid) {
+    p.innerHTML = head + `<div class="section">${picker}${period}<div class="note warn"><span>Este modelo no tiene un resultado válido con los datos actuales: elija otro o revise el paso 3.</span></div></div>`;
+  } else {
+    const R = T.res, ex = R.rows.filter(r => !r.used), st = R.stats;
+    p.innerHTML = head + `<div class="section">
+        ${picker}${period}${warnReg}
+        <div class="stats">
+          <div class="stat"><b>${fmt(R.savings)}</b><span>ahorro acumulado (kWh) = −CUSUM final${R.savings < 0 ? '; negativo: se consumió más' : ''}</span></div>
+          <div class="stat"><b>${pc(R.savingsPct)}</b><span>ahorro sobre el consumo esperado acumulado</span></div>
+          <div class="stat"><b>${R.n}</b><span>meses de reporte usados${ex.length ? ` de ${T.items.length}` : ''}</span></div>
+          <div class="stat"><b>${pc(st.cvrmse)}</b><span>CV(RMSE) fuera de la muestra</span></div>
+          <div class="stat"><b>${pc(st.nmbe)}</b><span>NMBE fuera de la muestra</span></div>
+        </div>
+        ${ex.length ? `<div class="note warn"><strong>${ex.length === 1 ? 'Un mes excluido' : ex.length + ' meses excluidos'} del CUSUM.</strong><span>${ex.map(r => `${monthLabel(r.ym)}: ${esc(r.why)}`).join('; ')}. No entran en la suma ni en las métricas.</span></div>` : ''}
+        <div class="tbl-tools"><h3>CUSUM mes a mes</h3><div class="legend"><span><i class="line" style="background:var(--s1)"></i>CUSUM (kWh)</span><span><i class="line" style="background:var(--ink-2)"></i>cero</span>${ex.length ? '<span><b style="color:var(--bad);margin-right:6px">×</b>mes excluido</span>' : ''}</div></div>
+        <div class="chart" id="chCusum"></div>
+        <p class="small">Pendiente hacia abajo: se consume menos que la referencia; hacia arriba: más. El CUSUM muestra cuándo y cuánto, no por qué.</p>
+      </div>
+      <div class="section">
+        <div class="tbl-tools"><h3>Tabla de seguimiento</h3>${copyBtn('tCusum')}</div>
+        <div class="tbl-wrap"><table id="tCusum"><thead><tr><th>Mes</th><th>Real normalizado (kWh)</th><th>Esperado (kWh)</th><th>Diferencia real − esperado (kWh)</th><th>CUSUM (kWh)</th>${ex.length ? '<th>Nota</th>' : ''}</tr></thead><tbody>
+        ${R.rows.map(r => `<tr${r.used ? '' : ' class="off"'}><td>${monthLabel(r.ym)}</td><td>${fmt(r.actual)}</td><td>${fmt(r.expected)}</td><td>${fmt(r.diff)}</td><td class="hi">${fmt(r.cusum)}</td>${ex.length ? `<td class="txt left">${r.used ? '' : 'Excluido: ' + esc(r.why)}</td>` : ''}</tr>`).join('')}
+        </tbody><tfoot><tr><td>Total${ex.length ? ' (meses usados)' : ''}</td><td>${fmt(R.sumActual)}</td><td>${fmt(R.sumExpected)}</td><td>${fmt(R.final)}</td><td>${fmt(R.final)}</td>${ex.length ? '<td></td>' : ''}</tr></tfoot></table></div>
+        <p class="small muted">Esperado: ${{ abs: 'la LBEn del mes calendario', ratio: `cociente del mes calendario × «${esc(S.ratioVar)}» del mes`, reg: 'la ecuación de regresión con las variables del mes' }[sel]}. CV(RMSE) y NMBE del reporte usan n = ${R.n} y p = 0, porque estos meses no se usaron para ajustar el modelo. Si hubo medidas de ahorro, esas métricas incluyen su efecto además del error del modelo.</p>
+      </div>
+      <div class="section">
+        <h3>Exportar</h3>
+        <div class="row">${DL ? '<button class="btn primary" id="bXlsx5">Descargar resultados .xlsx</button>' : ''}${copyBtn('tCusum', 'Copiar tabla de seguimiento')}</div>
+        <p class="small muted">${DL ? 'El archivo incluye la hoja «Seguimiento» con esta tabla y las métricas de ajuste.' : 'Las descargas no están disponibles en esta vista; copie las tablas con los botones.'}</p>
+      </div>`;
+    const rows = R.rows;
+    tsChart($('#chCusum'), {
+      labels: rows.map(r => r.ym), zero: true, monthTicks: true, gaps: rows.map((r, i) => r.used ? -1 : i).filter(i => i >= 0), aria: 'CUSUM del periodo de reporte',
+      series: [{ values: rows.map(r => r.cusum), color: 'var(--s1)', dots: true }],
+      tip: i => { const r = rows[i]; return r.used ? `<div>${monthLabel(r.ym)}</div><div>CUSUM: <b>${fmt(r.cusum)}</b> kWh</div><div class="muted">Real ${fmt(r.actual)} · esperado ${fmt(r.expected)}</div><div class="muted">Diferencia del mes: ${fmt(r.diff)} kWh</div>` : `<div>${monthLabel(r.ym)}</div><div class="muted">Excluido: ${esc(r.why)}</div>`; }
+    });
+    if ($('#bXlsx5')) $('#bXlsx5').onclick = () => exportXlsx(sel);
+  }
+  p.querySelectorAll('input[name="trk"]').forEach(r => r.onchange = () => { S.model = r.value; commit(); });
+}
+
+function exportXlsx(sel) {
+  if (!xlsxReady()) { toast('No se pudo preparar el archivo. Use los botones «Copiar tabla».'); return; }
+  const wb = XLSX.utils.book_new(), add = (name, aoa, widths) => { const ws = XLSX.utils.aoa_to_sheet(aoa); if (widths) ws['!cols'] = widths.map(w => ({ wch: w })); XLSX.utils.book_append_sheet(wb, ws, name); };
+  const ex = new Set(S.excluded), r1 = v => Math.round(v * 10) / 10, r4 = v => Math.round(v * 1e4) / 1e4;
+  add('Datos', [['Mes', 'kWh facturados', 'Días facturados', 'kWh normalizados (30 días)', ...D.varNames, 'En periodo base', 'Excluido'],
+    ...D.months.map(m => [m.ym, m.kwh, m.dias, r1(m.norm), ...D.varNames.map(v => m.vars[v]), (m.ym >= S.baseFrom && m.ym <= S.baseTo) ? 'Sí' : 'No', ex.has(m.ym) ? 'Sí' : 'No'])], [10, 15, 15, 24, ...D.varNames.map(() => 22), 15, 10]);
+  const ys = yearsInBase();
+  const monthSheet = (model, label, dec) => [['Mes', ...ys, 'Promedio inicial', 'Datos usados', label], ...model.months.map((mm, i) => { const byY = Object.fromEntries(mm.values.map(v => [v.ym.slice(0, 4), v])); return [MES_CAP[i], ...ys.map(y => byY[y] ? (byY[y].out ? `${dec(byY[y].v)} (fuera ±10 %)` : dec(byY[y].v)) : ''), dec(mm.avg0), mm.kept, dec(mm.value)]; })];
+  const a = monthSheet(D.abs, 'LBEn (kWh/mes)', r1); a.push([], ['Datos usados (N)', D.abs.conf.N], ['Desviación estándar (kWh)', r1(D.abs.conf.sigma)]);
+  add('Valor absoluto', a, [10, ...ys.map(() => 18), 16, 12, 16]);
+  if (D.ratio) { const r = monthSheet(D.ratio, 'Cociente LBEn', r4); r.unshift([`Variable: ${S.ratioVar}`], []); r.push([], ['Desviación estándar del cociente', r4(D.ratio.conf.sigma)]); add('Cociente', r, [10, ...ys.map(() => 18), 16, 12, 16]); }
+  if (D.reg && !D.reg.error && S.regVars.length) {
+    const f = D.reg, an = f.anova;
+    add('Estadístico', [['Resumen'], [], ['Estadísticas de la regresión'], ['Coeficiente de correlación múltiple', r4(f.r)], ['Coeficiente de determinación R^2', r4(f.r2)], ['R^2 ajustado', r4(f.r2adj)], ['Error típico', r1(f.seReg)], ['Observaciones', f.n], [],
+      ['Análisis de varianza', 'Grados de libertad', 'Suma de cuadrados', 'Promedio de los cuadrados', 'F', 'Valor crítico de F'],
+      ['Regresión', f.k, r1(an.ssr), r1(an.msr), r4(an.F), an.sigF], ['Residuos', f.dfRes, r1(an.sse), r1(an.mse)], ['Total', f.n - 1, r1(an.sst)], [],
+      ['', 'Coeficientes', 'Error típico', 'Estadístico t', 'Probabilidad', 'Inferior 95%', 'Superior 95%'], ...f.coefs.map(c => [c.name, r4(c.b), r4(c.se), r4(c.t), c.p, r4(c.lo), r4(c.hi)]),
+      [], ['Ecuación', equation(f).replace(/&[a-z]+;/g, '')], ...(S.regLog ? [[], ['Eliminación paso a paso'], ...S.regLog.map(s => [s.replace(/<[^>]+>/g, '')])] : [])], [34, 18, 18, 22, 14, 18, 14]);
+  }
+  const pred = sel === 'abs' ? D.abs.pred : sel === 'ratio' ? (D.ratio ? D.ratio.pred : []) : (D.reg && !D.reg.error ? D.reg.yhat : []);
+  add('LBEn', [['Modelo elegido', { abs: 'Valor absoluto (7.4.1)', ratio: `Cociente (7.4.2) con ${S.ratioVar}`, reg: 'Estadístico (7.4.3)' }[sel]], ['Periodo base', `${S.baseFrom} a ${S.baseTo}`], ['Meses utilizables', D.base.length], ['Meses excluidos', S.excluded.filter(k => k >= S.baseFrom && k <= S.baseTo).join(', ') || 'ninguno'], [],
+    ['Mes', 'Real normalizado (kWh)', 'LBEn (kWh)', 'Diferencia (%)'], ...D.base.map((m, i) => [m.ym, r1(m.norm), r1(pred[i]), Number.isFinite(pred[i]) ? r1((m.norm - pred[i]) / m.norm * 100) : '']),
+    [], ['Comparación de modelos', 'Error medio (%)', 'Meses con error > 10 %'], ['Valor absoluto', r1(D.err.abs.mape * 100), D.err.abs.over10], ...(D.ratio ? [['Cociente', r1(D.err.ratio.mape * 100), D.err.ratio.over10]] : []), ...(D.err.reg ? [['Estadístico', r1(D.err.reg.mape * 100), D.err.reg.over10]] : []),
+    [], ['Texto para el informe'], ...summary(sel).map(t => [t.replace(/<[^>]+>/g, '').replace(/&[a-z#0-9]+;/g, m => ({ '&amp;': '&', '&lt;': '<', '&gt;': '>', '&quot;': '"', '&#39;': "'" }[m] || m))])], [24, 22, 16, 16]);
+  add('Seguimiento', trackingSheet(sel), [34, 22, 16, 30, 16, 40]);
+  const slug = (S.name || 'edificio').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/gi, '_').replace(/^_|_$/g, '').slice(0, 40) || 'edificio';
+  saveFile(`linea_base_${slug}.xlsx`, XLSX.write(wb, { type: 'array', bookType: 'xlsx' }));
+}
+
+/* Hoja «Seguimiento»: CUSUM del periodo de reporte y métricas de ajuste de los tres modelos. */
+function trackingSheet(sel) {
+  const r1 = v => Number.isFinite(v) ? Math.round(v * 10) / 10 : '', r2 = v => { if (!Number.isFinite(v)) return ''; const x = Math.round(v * 100) / 100; return x === 0 ? 0 : x; };
+  const T = tracking(sel), aoa = [['Seguimiento con CUSUM'], ['Modelo', modelName(sel)], ['Periodo base', `${S.baseFrom} a ${S.baseTo}`]];
+  if (T.none) aoa.push(['Periodo de reporte', 'sin meses posteriores al periodo base']);
+  else if (T.invalid) aoa.push(['Periodo de reporte', `${T.items[0].ym} a ${T.items[T.items.length - 1].ym}`], ['Estado', 'el modelo elegido no tiene un resultado válido']);
+  else {
+    const R = T.res;
+    aoa.push(['Periodo de reporte', `${T.items[0].ym} a ${T.items[T.items.length - 1].ym}`], [],
+      ['Mes', 'Real normalizado (kWh)', 'Esperado (kWh)', 'Diferencia real − esperado (kWh)', 'CUSUM (kWh)', 'Nota'],
+      ...R.rows.map(r => [r.ym, r1(r.actual), r1(r.expected), r1(r.diff), r1(r.cusum), r.used ? '' : 'Excluido: ' + r.why]),
+      [], ['Meses usados (n)', R.n], ['Consumo real acumulado (kWh)', r1(R.sumActual)], ['Consumo esperado acumulado (kWh)', r1(R.sumExpected)],
+      ['CUSUM final (kWh)', r1(R.final)], ['Ahorro acumulado (kWh) = −CUSUM final', r1(R.savings)], ['Ahorro (% del esperado acumulado)', r2(R.savingsPct)],
+      ['CV(RMSE) fuera de la muestra (%), p = 0', r2(R.stats.cvrmse)], ['NMBE fuera de la muestra (%), p = 0', r2(R.stats.nmbe)]);
+  }
+  const fm = [['abs', D.fitm.abs], ['ratio', D.fitm.ratio], ['reg', D.fitm.reg]].filter(x => x[1]);
+  aoa.push([], ['Ajuste en el periodo base (dentro de la muestra)'], ['Modelo', 'Meses (n)', 'Parámetros (p)', 'n − p', 'CV(RMSE) (%)', 'NMBE (%)'],
+    ...fm.map(([k, f]) => [k === 'reg' ? `${modelName(k)} con ${S.regVars.join(', ')}` : modelName(k), f.n, f.p, f.df, r2(f.cvrmse), r2(f.nmbe)]),
+    [], ['CV(RMSE) = raíz(Σ(y − ŷ)² / (n − p)) / ȳ × 100; NMBE = Σ(y − ŷ) / ((n − p) · ȳ) × 100; y = consumo normalizado a 30 días.']);
+  return aoa;
+}
+
+function emptyPanel(eb, title, msg = 'Primero cargue datos en el paso 1.') { return `<div class="panel-head"><div class="eyebrow">${eb}</div><h2>${title}</h2></div><div class="section"><p class="muted">${esc(msg)}</p></div>`; }
+
+/* ---------- ciclo de render ---------- */
+const STEPS = ['datos', 'periodo', 'modelos', 'lben', 'seguimiento'];
+function render() {
+  charts.length = 0; hideTip();
+  $('#bname').value = S.name || '';
+  const chip = $('#srcChip');
+  chip.className = 'chip ' + (S.source === 'ejemplo' ? 'warn' : 'ok');
+  chip.textContent = S.source === 'ejemplo' ? 'Mostrando datos de ejemplo (ficticios)' : `Usando sus datos · ${D.months.length} meses`;
+  STEPS.forEach(s => { const on = s === S.step; $('#tab-' + s).setAttribute('aria-selected', on); $('#p-' + s).hidden = !on; });
+  ({ datos: renderDatos, periodo: renderPeriodo, modelos: renderModelos, lben: renderLben, seguimiento: renderSeguimiento })[S.step]();
+  document.querySelectorAll('[data-copy]').forEach(b => b.onclick = () => copyText(tableTSV(b.dataset.copy)));
+}
+function commit() { derive(); save(); render(); }
+document.querySelectorAll('.step-btn').forEach(b => b.onclick = () => { S.step = b.dataset.step; save(); render(); try { history.replaceState(null, '', '#' + S.step); } catch { } window.scrollTo({ top: 0 }); });
+$('#bname').addEventListener('input', e => { S.name = e.target.value; save(); });
+$('#bname').addEventListener('change', () => { if (S.step === 'lben') render(); });
+const h = (location.hash || '').slice(1); if (STEPS.includes(h)) S.step = h;
+derive(); render();
+})();
+
+</script>

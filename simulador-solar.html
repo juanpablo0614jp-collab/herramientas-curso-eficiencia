@@ -1,0 +1,1417 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Simulador solar y batería</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: banda de datos arriba; debajo, columna de parámetros (fija en pantallas anchas) y columna de resultados; al final fuentes y método. Paleta del curso: tinta, acento azul, alerta; series FV ámbar, importación azul, carga gris, batería verde azulado. */
+:root {
+  --bg: #F4F6F9;
+  --surface: #FFFFFF;
+  --surface-2: #EDF1F6;
+  --ink: #1C2D44;
+  --ink-2: #4A5A70;
+  --muted: #66768C;
+  --line: #D9E1EA;
+  --line-strong: #B5C2D1;
+  --grid: #E6EBF1;
+  --accent-mark: #1E8FC4;
+  --accent-text: #136A97;
+  --accent-soft: #E2F1F9;
+  --btn: #1C2D44;
+  --btn-hover: #2B4061;
+  --btn-ink: #FFFFFF;
+  --alert: #E4572E;
+  --alert-text: #B23C17;
+  --alert-soft: #FCEBE5;
+  --good: #1F7F55;
+  --good-soft: #E2F2E9;
+  --warn-text: #865600;
+  --warn-soft: #FBF0D8;
+  --tip-bg: #1C2D44;
+  --tip-ink: #FFFFFF;
+  --focus: #1E8FC4;
+  --hover-band: rgba(28, 45, 68, 0.06);
+  --s-load: #8592A3;
+  --s-load-soft: #E4E9F0;
+  --s-pv: #B87D00;
+  --s-imp: #1F5FA8;
+  --s-bat: #0B9483;
+  --s-bat-soft: rgba(11, 148, 131, 0.12);
+  --f-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  --r: 8px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0F1722; --surface: #162131; --surface-2: #1D2A3C; --ink: #E6EDF5; --ink-2: #A9B6C6; --muted: #8796AA;
+    --line: #2A3A4F; --line-strong: #3E5270; --grid: #213045;
+    --accent-mark: #4CB8EA; --accent-text: #74C9F1; --accent-soft: #15344A;
+    --btn: #E6EDF5; --btn-hover: #C9D6E4; --btn-ink: #0F1722;
+    --alert: #F07A5F; --alert-text: #F69C86; --alert-soft: #3A1F19;
+    --good: #5AC897; --good-soft: #143326; --warn-text: #E9BC66; --warn-soft: #33280F;
+    --tip-bg: #E6EDF5; --tip-ink: #0F1722; --focus: #4CB8EA; --hover-band: rgba(230, 237, 245, 0.07);
+    --s-load: #6F7F94; --s-load-soft: #23324A; --s-pv: #C08415; --s-imp: #4A90E2; --s-bat: #17A38A; --s-bat-soft: rgba(23, 163, 138, 0.18);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0F1722; --surface: #162131; --surface-2: #1D2A3C; --ink: #E6EDF5; --ink-2: #A9B6C6; --muted: #8796AA;
+  --line: #2A3A4F; --line-strong: #3E5270; --grid: #213045;
+  --accent-mark: #4CB8EA; --accent-text: #74C9F1; --accent-soft: #15344A;
+  --btn: #E6EDF5; --btn-hover: #C9D6E4; --btn-ink: #0F1722;
+  --alert: #F07A5F; --alert-text: #F69C86; --alert-soft: #3A1F19;
+  --good: #5AC897; --good-soft: #143326; --warn-text: #E9BC66; --warn-soft: #33280F;
+  --tip-bg: #E6EDF5; --tip-ink: #0F1722; --focus: #4CB8EA; --hover-band: rgba(230, 237, 245, 0.07);
+  --s-load: #6F7F94; --s-load-soft: #23324A; --s-pv: #C08415; --s-imp: #4A90E2; --s-bat: #17A38A; --s-bat-soft: rgba(23, 163, 138, 0.18);
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font: 15px/1.5 var(--f-body); }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--surface); }
+.page { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.wrap { max-width: 1240px; margin-inline: auto; }
+.bleed {
+  margin-left: calc(-1 * max(16px, env(safe-area-inset-left, 0px)));
+  margin-right: calc(-1 * max(16px, env(safe-area-inset-right, 0px)));
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+h1, h2, h3 { margin: 0; line-height: 1.2; text-wrap: balance; }
+h1 { font: 600 clamp(1.7rem, 3.2vw, 2.3rem)/1.1 var(--f-body); letter-spacing: -0.01em; }
+h2 { font: 600 1.15rem/1.25 var(--f-body); }
+h3 { font: 600 1rem/1.3 var(--f-body); }
+p { margin: 0; }
+a { color: var(--accent-text); text-underline-offset: 3px; }
+.num, .mono { font-family: var(--f-mono); font-variant-numeric: tabular-nums; }
+.small { font-size: .875rem; }
+.muted { color: var(--muted); }
+.ink2 { color: var(--ink-2); }
+.eyebrow { font: 500 .74rem/1.4 var(--f-mono); letter-spacing: .06em; text-transform: uppercase; color: var(--ink-2); }
+:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+[hidden] { display: none !important; }
+.vh { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+
+/* encabezado */
+header.top { background: var(--surface); border-bottom: 1px solid var(--line); padding-block: 24px 20px; }
+.head { display: grid; gap: 10px; }
+.lead { color: var(--ink-2); max-width: 74ch; }
+
+/* estructura */
+.main { display: grid; gap: 20px; padding-block: 20px 56px; }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 16px 18px; min-width: 0; }
+.work { display: grid; gap: 20px; grid-template-columns: minmax(0, 1fr); align-items: start; }
+@media (min-width: 1024px) {
+  .work { grid-template-columns: 340px minmax(0, 1fr); }
+}
+.controls { display: grid; gap: 14px; min-width: 0; }
+.results { display: grid; gap: 18px; min-width: 0; }
+
+/* chips y mensajes */
+.chip { display: inline-flex; align-items: center; gap: 6px; padding: 2px 9px; border-radius: 999px; font: 500 .8rem/1.5 var(--f-body); background: var(--surface-2); color: var(--ink-2); }
+.chip.warn { background: var(--warn-soft); color: var(--warn-text); }
+.chip.info { background: var(--accent-soft); color: var(--accent-text); }
+.chip.good { background: var(--good-soft); color: var(--good); }
+.chip.alert { background: var(--alert-soft); color: var(--alert-text); }
+.msg { font-size: .875rem; padding: 8px 10px; border-radius: 6px; background: var(--alert-soft); color: var(--alert-text); }
+.msg.ok { background: var(--good-soft); color: var(--good); }
+
+/* banda de datos */
+.data-grid { display: grid; gap: 18px; grid-template-columns: minmax(0, 1fr); }
+@media (min-width: 860px) { .data-grid { grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); } }
+.data-file { display: grid; gap: 10px; align-content: start; }
+.drop { position: relative; display: grid; gap: 4px; padding: 16px; border: 1.5px dashed var(--line-strong); border-radius: var(--r); background: var(--surface-2); cursor: pointer; transition: border-color .15s, background-color .15s; }
+.drop:hover, .drop.over { border-color: var(--accent-mark); background: var(--accent-soft); }
+.drop:focus-within { outline: 2px solid var(--focus); outline-offset: 2px; }
+.drop-main { font-weight: 600; }
+.drop-sub { font-size: .875rem; color: var(--ink-2); }
+.data-info { display: grid; gap: 12px; align-content: start; }
+.ds-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.ds-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px 16px; margin: 0; }
+.ds-stats div { display: grid; gap: 2px; min-width: 0; }
+.ds-stats dt { font-size: .78rem; color: var(--muted); }
+.ds-stats dd { margin: 0; font: 500 1rem/1.3 var(--f-mono); font-variant-numeric: tabular-nums; }
+
+/* controles */
+fieldset { border: 0; margin: 0; padding: 0; min-width: 0; }
+legend { padding: 0; font: 600 1.05rem/1.3 var(--f-body); margin-bottom: 10px; }
+.fs-body { display: grid; gap: 12px; }
+.fs-body:disabled { opacity: .55; }
+.field { display: grid; gap: 4px; min-width: 0; }
+.field > label, .lbl { font-size: .86rem; font-weight: 500; color: var(--ink); }
+.inp { display: flex; align-items: stretch; border: 1px solid var(--line-strong); border-radius: 6px; background: var(--surface); overflow: hidden; }
+.inp:focus-within { outline: 2px solid var(--focus); outline-offset: 1px; }
+.inp input { flex: 1 1 auto; min-width: 0; width: 100%; border: 0; background: transparent; color: var(--ink); padding: 7px 9px; font: 500 .95rem/1.3 var(--f-mono); font-variant-numeric: tabular-nums; }
+.inp input:focus { outline: none; }
+.inp .u { display: flex; align-items: center; padding: 0 9px; font: .78rem/1 var(--f-mono); color: var(--muted); background: var(--surface-2); border-left: 1px solid var(--line); white-space: nowrap; }
+.inp.bad { border-color: var(--alert); }
+.err { font-size: .8rem; color: var(--alert-text); }
+.hint { font-size: .8rem; color: var(--ink-2); }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+select { font: 500 .95rem/1.3 var(--f-mono); color: var(--ink); background: var(--surface); border: 1px solid var(--line-strong); border-radius: 6px; padding: 6px 8px; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chipbtn { font: 500 .78rem/1.4 var(--f-mono); padding: 3px 9px; border-radius: 999px; border: 1px solid var(--line-strong); background: var(--surface); color: var(--ink-2); cursor: pointer; }
+.chipbtn:hover { border-color: var(--accent-mark); color: var(--accent-text); }
+.check { display: flex; gap: 8px; align-items: flex-start; font-size: .9rem; cursor: pointer; }
+.check input { margin: 3px 0 0; accent-color: var(--accent-mark); width: 16px; height: 16px; flex: none; }
+.seg { position: relative; display: grid; grid-template-columns: 1fr 1fr; border: 1px solid var(--line-strong); border-radius: 6px; overflow: hidden; }
+.seg label { display: block; text-align: center; padding: 7px 6px; font-size: .88rem; font-weight: 500; cursor: pointer; color: var(--ink-2); background: var(--surface); }
+.seg label + label { border-left: 1px solid var(--line-strong); }
+.seg input { position: absolute; opacity: 0; pointer-events: none; }
+.seg input:checked + span { color: var(--btn-ink); }
+.seg label:has(input:checked) { background: var(--btn); color: var(--btn-ink); }
+.seg label:has(input:focus-visible) { outline: 2px solid var(--focus); outline-offset: -3px; }
+.warnbox { font-size: .84rem; line-height: 1.45; padding: 9px 11px; border-radius: 6px; background: var(--warn-soft); color: var(--warn-text); }
+.warnbox strong { font-weight: 600; }
+.sub { display: grid; gap: 12px; padding-top: 4px; }
+
+/* botones */
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; font: 600 .9rem/1.2 var(--f-body); padding: 8px 14px; border-radius: 6px; border: 1px solid var(--btn); background: var(--btn); color: var(--btn-ink); cursor: pointer; }
+.btn:hover { background: var(--btn-hover); border-color: var(--btn-hover); }
+.btn.ghost { background: var(--surface); color: var(--ink); border-color: var(--line-strong); }
+.btn.ghost:hover { border-color: var(--accent-mark); color: var(--accent-text); }
+.btn-link { font: 500 .86rem/1.3 var(--f-body); background: none; border: 0; padding: 2px 0; color: var(--accent-text); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+
+/* resultados */
+.res-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 16px; }
+.res-head .actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.tenet { font-size: 1rem; line-height: 1.5; font-weight: 500; padding: 12px 16px; border-radius: var(--r); background: var(--surface-2); border: 1px solid var(--line); max-width: 80ch; }
+.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; }
+.kpi { display: grid; gap: 4px; padding: 14px 16px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); min-width: 0; align-content: start; }
+@supports (grid-template-rows: subgrid) { .kpi { grid-row: span 3; grid-template-rows: subgrid; row-gap: 4px; } }
+.kpi .k-l { font-size: .82rem; color: var(--ink-2); }
+.kpi .k-v { font: 500 1.55rem/1.15 var(--f-mono); font-variant-numeric: tabular-nums; letter-spacing: -0.01em; overflow-wrap: anywhere; }
+.kpi .k-v small { font-size: .8rem; color: var(--muted); font-weight: 400; letter-spacing: 0; }
+.kpi .k-s { font-size: .8rem; color: var(--muted); }
+.note { display: grid; gap: 6px; font-size: .9rem; padding: 12px 14px; border-radius: var(--r); border: 1px solid var(--line); background: var(--surface); }
+.note.alert { background: var(--alert-soft); border-color: transparent; color: var(--ink); }
+.note.alert h3 { color: var(--alert-text); }
+.note.info { background: var(--accent-soft); border-color: transparent; }
+.note h3 { font-size: .95rem; }
+.sec { display: grid; gap: 12px; }
+.sec-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 14px; }
+
+/* tablas */
+.tbl-wrap { position: relative; overflow-x: auto; -webkit-overflow-scrolling: touch; border: 1px solid var(--line); border-radius: var(--r); background: var(--surface); }
+table { border-collapse: collapse; width: 100%; font-size: .9rem; }
+th, td { padding: 7px 12px; text-align: left; border-bottom: 1px solid var(--line); vertical-align: top; }
+tr:last-child > th, tr:last-child > td { border-bottom: 0; }
+thead th { font-size: .78rem; font-weight: 600; color: var(--ink-2); background: var(--surface-2); white-space: nowrap; }
+td.n, th.n { text-align: right; font-family: var(--f-mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
+#tblCmp thead th, #tblDem thead th { white-space: normal; vertical-align: bottom; }
+tr.indent td:first-child { padding-left: 28px; color: var(--ink-2); }
+tr.strong td { font-weight: 600; }
+tr.sep td { border-top: 1px solid var(--line-strong); }
+.cmp.stale table { opacity: .5; }
+.balance { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; padding: 10px 12px; border-top: 1px solid var(--line); font-size: .86rem; background: var(--surface-2); }
+.balance .eq { min-width: 0; }
+
+/* gráficas */
+.chart-card { display: grid; gap: 10px; }
+.legend { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: .84rem; color: var(--ink-2); }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.sw { display: inline-block; width: 16px; height: 3px; border-radius: 2px; }
+.sw.box { height: 10px; width: 12px; border-radius: 2px; }
+.chart { position: relative; min-width: 0; }
+.chart svg { display: block; width: 100%; height: auto; overflow: visible; }
+.tip { position: absolute; top: 0; left: 0; pointer-events: none; z-index: 5; background: var(--tip-bg); color: var(--tip-ink); font: .78rem/1.45 var(--f-mono); font-variant-numeric: tabular-nums; padding: 7px 9px; border-radius: 6px; white-space: nowrap; box-shadow: 0 2px 10px rgba(0,0,0,.18); }
+.tip .t-h { font-weight: 500; margin-bottom: 2px; }
+.tip .t-r { display: flex; align-items: center; gap: 6px; }
+.tip .sw { width: 10px; height: 10px; }
+.day-ctl { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.day-ctl input[type="date"] { font: 500 .9rem/1.2 var(--f-mono); color: var(--ink); background: var(--surface); border: 1px solid var(--line-strong); border-radius: 6px; padding: 6px 8px; }
+.iconbtn { width: 34px; height: 34px; display: inline-flex; align-items: center; justify-content: center; border-radius: 6px; border: 1px solid var(--line-strong); background: var(--surface); color: var(--ink); cursor: pointer; font: 500 1rem/1 var(--f-mono); }
+.iconbtn:hover { border-color: var(--accent-mark); color: var(--accent-text); }
+.chart-card > *, .sec > *, .results > *, .controls > *, .data-grid > * { min-width: 0; }
+details:not([open]) > :not(summary) { display: none; }
+details.data-tbl summary { cursor: pointer; font-size: .86rem; color: var(--accent-text); }
+details.data-tbl[open] summary { margin-bottom: 8px; }
+
+/* fuentes y método */
+.prose { display: grid; gap: 10px; max-width: 82ch; }
+.prose h3 { margin-top: 6px; }
+.prose ul { margin: 0; padding-left: 20px; display: grid; gap: 4px; }
+.formula { font: .88rem/1.6 var(--f-mono); background: var(--surface-2); border-radius: 6px; padding: 8px 12px; overflow-x: auto; white-space: normal; }
+details.metodo > summary { cursor: pointer; font: 600 1.1rem/1.3 var(--f-body); list-style-position: outside; }
+details.metodo[open] > summary { margin-bottom: 12px; }
+.copybuf { width: 100%; min-height: 120px; font: .8rem/1.4 var(--f-mono); color: var(--ink); background: var(--surface); border: 1px solid var(--line-strong); border-radius: 6px; padding: 8px; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+@media (max-width: 480px) {
+  .panel { padding: 14px; }
+  th, td { padding: 6px 9px; }
+  .kpi .k-v { font-size: 1.3rem; }
+}
+</style>
+
+<div class="page">
+  <header class="top bleed">
+    <div class="wrap head">
+      <p class="eyebrow">Caracterización de energía y eficiencia energética · Marco teórico 06 · Recursos energéticos distribuidos</p>
+      <h1>Simulador solar y batería</h1>
+      <p class="lead">Simule paneles fotovoltaicos y una batería sobre la curva horaria de un año. La herramienta reparte la energía hora por hora y muestra cuánto se deja de comprar a la red, cuánto se exporta y cuánto se pierde en la batería.</p>
+    </div>
+  </header>
+
+  <main class="wrap main">
+    <section class="panel" id="datos" aria-labelledby="datos-t">
+      <div class="data-grid">
+        <div class="data-file">
+          <h2 id="datos-t">Curva de carga</h2>
+          <label class="drop" id="drop" for="csvFile">
+            <input type="file" id="csvFile" accept=".csv,text/csv" class="vh">
+            <span class="drop-main">Cargue un CSV del paquete «Casos AMI del curso»</span>
+            <span class="drop-sub">Arrástrelo aquí o haga clic para elegirlo. Se leen las columnas fecha_hora_inicio y kwh.</span>
+          </label>
+          <p class="small muted">El archivo se lee en su navegador y no sale de su equipo.</p>
+          <p class="msg" id="csvMsg" role="status" hidden></p>
+        </div>
+        <div class="data-info">
+          <div class="ds-row">
+            <span class="chip warn" id="dsChip">Ejemplo sintético, no es un caso real</span>
+            <button type="button" class="btn-link" id="btnExample" hidden>Volver al ejemplo</button>
+          </div>
+          <div class="ds-row">
+            <label for="year" class="lbl">Año</label>
+            <select id="year"></select>
+            <span class="small muted" id="yearNote"></span>
+          </div>
+          <dl class="ds-stats">
+            <div><dt>Consumo anual</dt><dd id="ds-consumo">—</dd></div>
+            <div><dt>Demanda máxima</dt><dd id="ds-pico">—</dd></div>
+            <div><dt>Demanda media</dt><dd id="ds-media">—</dd></div>
+            <div><dt>Factor de carga</dt><dd id="ds-fc">—</dd></div>
+          </dl>
+          <p class="small ink2" id="dsNote"></p>
+        </div>
+      </div>
+    </section>
+
+    <div class="work">
+      <aside class="controls" aria-label="Parámetros de la simulación">
+        <div class="panel">
+          <fieldset id="fs-fv">
+            <legend>Paneles fotovoltaicos</legend>
+            <div class="fs-body">
+              <div class="field">
+                <label for="kwp">Potencia instalada</label>
+                <div class="inp"><input id="kwp" type="text" inputmode="decimal" autocomplete="off" aria-describedby="kwp-ref"><span class="u">kWp</span></div>
+                <p class="err" id="kwp-err" hidden></p>
+                <p class="hint" id="kwp-ref"></p>
+                <div class="chips" role="group" aria-label="Tamaño respecto al de referencia">
+                  <button type="button" class="chipbtn" data-ref="0.25" id="ref25">25 %</button>
+                  <button type="button" class="chipbtn" data-ref="0.5" id="ref50">50 %</button>
+                  <button type="button" class="chipbtn" data-ref="1" id="ref100">100 %</button>
+                </div>
+              </div>
+              <div class="field">
+                <label for="yield">Rendimiento específico</label>
+                <div class="inp"><input id="yield" type="text" inputmode="decimal" autocomplete="off" aria-describedby="yield-src"><span class="u">kWh/kWp/día</span></div>
+                <p class="err" id="yield-err" hidden></p>
+                <p class="hint" id="yield-src">Valor de referencia, ajústelo con PVGIS o Global Solar Atlas para su sitio. <a href="#fuentes">Referencias por región</a></p>
+              </div>
+              <div class="pair">
+                <div class="field">
+                  <label for="sunrise">Salida del sol</label>
+                  <div class="inp"><input id="sunrise" type="text" inputmode="decimal" autocomplete="off"><span class="u">h</span></div>
+                </div>
+                <div class="field">
+                  <label for="sunset">Puesta del sol</label>
+                  <div class="inp"><input id="sunset" type="text" inputmode="decimal" autocomplete="off"><span class="u">h</span></div>
+                </div>
+              </div>
+              <p class="err" id="sun-err" hidden></p>
+              <p class="hint" id="pv-sum"></p>
+            </div>
+          </fieldset>
+        </div>
+
+        <div class="panel">
+          <fieldset id="fs-bat">
+            <legend>Batería</legend>
+            <div class="fs-body">
+              <label class="check" for="batOn"><input type="checkbox" id="batOn"> <span>Incluir batería</span></label>
+              <fieldset class="fs-body" id="batBody">
+                <div class="pair">
+                  <div class="field">
+                    <label for="batE">Capacidad</label>
+                    <div class="inp"><input id="batE" type="text" inputmode="decimal" autocomplete="off"><span class="u">kWh</span></div>
+                  </div>
+                  <div class="field">
+                    <label for="batP">Potencia</label>
+                    <div class="inp"><input id="batP" type="text" inputmode="decimal" autocomplete="off"><span class="u">kW</span></div>
+                  </div>
+                </div>
+                <div class="field">
+                  <label for="eta">Eficiencia de ida y vuelta</label>
+                  <div class="inp"><input id="eta" type="text" inputmode="decimal" autocomplete="off"><span class="u">%</span></div>
+                </div>
+                <div class="pair">
+                  <div class="field">
+                    <label for="socMin">SOC mínimo</label>
+                    <div class="inp"><input id="socMin" type="text" inputmode="decimal" autocomplete="off"><span class="u">%</span></div>
+                  </div>
+                  <div class="field">
+                    <label for="socMax">SOC máximo</label>
+                    <div class="inp"><input id="socMax" type="text" inputmode="decimal" autocomplete="off"><span class="u">%</span></div>
+                  </div>
+                </div>
+                <p class="err" id="bat-err" hidden></p>
+                <p class="hint" id="bat-sum"></p>
+                <div class="field">
+                  <span class="lbl" id="strat-l">Estrategia</span>
+                  <div class="seg" role="radiogroup" aria-labelledby="strat-l">
+                    <label for="strat-auto"><input type="radio" name="strategy" id="strat-auto" value="auto"><span>Autoconsumo</span></label>
+                    <label for="strat-peak"><input type="radio" name="strategy" id="strat-peak" value="peak"><span>Recorte de pico</span></label>
+                  </div>
+                  <p class="hint" id="strat-desc"></p>
+                </div>
+                <div class="sub" id="peakBox">
+                  <div class="field">
+                    <label for="threshold">Umbral de demanda</label>
+                    <div class="inp"><input id="threshold" type="text" inputmode="decimal" autocomplete="off" aria-describedby="thr-hint"><span class="u">kW</span></div>
+                    <p class="err" id="thr-err" hidden></p>
+                    <p class="hint"><span id="thr-hint"></span> <button type="button" class="btn-link" id="thrReset">Volver al 90 %</button></p>
+                  </div>
+                  <label class="check" for="gridCharge"><input type="checkbox" id="gridCharge"> <span>Recargar también desde la red de 22:00 a 5:00, sin pasar el umbral</span></label>
+                </div>
+                <p class="warnbox" id="peakWarn"><strong>Recorte de pico:</strong> Un usuario regulado en Colombia paga tarifa monomia ($/kWh): recortar el pico no baja la factura por sí solo. Su valor depende del contrato o de evitar ampliar el transformador o la acometida.</p>
+              </fieldset>
+            </div>
+          </fieldset>
+        </div>
+      </aside>
+
+      <section class="results" aria-labelledby="res-t">
+        <div class="res-head">
+          <h2 id="res-t">Resultados del año</h2>
+          <div class="actions">
+            <span class="small muted" id="copyMsg" role="status"></span>
+            <button type="button" class="btn ghost" id="btnCopy">Copiar tabla</button>
+          </div>
+        </div>
+        <p class="tenet">Los paneles bajan la compra a la red; el consumo de las cargas no cambia. La batería no genera energía: la mueve en el tiempo y pierde una parte.</p>
+
+        <div class="kpis">
+          <div class="kpi"><span class="k-l">Autoconsumo</span><span class="k-v" id="k-autoc">—</span><span class="k-s">FV usada en sitio / FV generada</span></div>
+          <div class="kpi"><span class="k-l">Autosuficiencia</span><span class="k-v" id="k-autos">—</span><span class="k-s">Solar que llega a las cargas / consumo</span></div>
+          <div class="kpi"><span class="k-l">Importación de la red</span><span class="k-v" id="k-imp">—</span><span class="k-s" id="k-imp-s"></span></div>
+          <div class="kpi"><span class="k-l">Demanda máxima de importación</span><span class="k-v" id="k-pico">—</span><span class="k-s" id="k-pico-s"></span></div>
+        </div>
+
+        <div class="note alert" id="cregNote" hidden>
+          <h3 id="cregTitle"></h3>
+          <p id="cregText"></p>
+        </div>
+        <div class="note info" id="peakNeed" hidden></div>
+
+        <div class="sec">
+          <div class="sec-head"><h3>Balance anual de energía</h3><span class="chip" id="balChip"></span></div>
+          <div class="tbl-wrap">
+            <table id="tblRes">
+              <thead><tr><th scope="col">Concepto</th><th scope="col" class="n">Valor</th><th scope="col" class="n">% del consumo</th></tr></thead>
+              <tbody>
+                <tr class="strong"><td>Consumo de las cargas</td><td class="n" id="r-consumo"></td><td class="n" id="p-consumo"></td></tr>
+                <tr><td>Generación FV</td><td class="n" id="r-gen"></td><td class="n" id="p-gen"></td></tr>
+                <tr class="indent"><td>FV directa a las cargas</td><td class="n" id="r-dir"></td><td class="n" id="p-dir"></td></tr>
+                <tr class="indent"><td>FV que entra a la batería</td><td class="n" id="r-cpv"></td><td class="n" id="p-cpv"></td></tr>
+                <tr class="indent"><td>Exportación a la red</td><td class="n" id="r-exp"></td><td class="n" id="p-exp"></td></tr>
+                <tr><td>FV usada en sitio (directa + batería)</td><td class="n" id="r-sitio"></td><td class="n" id="p-sitio"></td></tr>
+                <tr class="sep"><td>Importación de la red</td><td class="n" id="r-imp"></td><td class="n" id="p-imp"></td></tr>
+                <tr class="indent"><td>de ella, para recargar la batería</td><td class="n" id="r-cg"></td><td class="n" id="p-cg"></td></tr>
+                <tr><td>Energía que entrega la batería</td><td class="n" id="r-dis"></td><td class="n" id="p-dis"></td></tr>
+                <tr class="indent"><td>de origen solar</td><td class="n" id="r-solbat"></td><td class="n" id="p-solbat"></td></tr>
+                <tr><td>Pérdidas de la batería</td><td class="n" id="r-loss"></td><td class="n" id="p-loss"></td></tr>
+                <tr class="strong"><td>Energía solar que llega a las cargas</td><td class="n" id="r-solcargas"></td><td class="n" id="p-solcargas"></td></tr>
+              </tbody>
+            </table>
+            <div class="balance" id="balance">
+              <span class="eq">Importación + generación − exportación = <b class="num" id="b-lhs"></b> kWh</span>
+              <span class="eq">Consumo + pérdidas de batería<span id="b-dE-l"></span> = <b class="num" id="b-rhs"></b> kWh</span>
+              <span class="eq">Diferencia: <b class="num" id="b-err"></b></span>
+            </div>
+          </div>
+        </div>
+
+        <div class="sec">
+          <h3>Demanda máxima</h3>
+          <div class="tbl-wrap">
+            <table id="tblDem">
+              <thead><tr><th scope="col">Concepto</th><th scope="col" class="n">Sin FV ni batería</th><th scope="col" class="n">Con el sistema</th></tr></thead>
+              <tbody>
+                <tr><td>Demanda máxima de importación</td><td class="n" id="r-pico-antes"></td><td class="n" id="r-pico-despues"></td></tr>
+                <tr><td id="l-horas">Horas sobre el umbral</td><td class="n" id="r-horas-antes"></td><td class="n" id="r-horas-despues"></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="panel chart-card" id="dayCard">
+          <div class="sec-head">
+            <h3 id="dayTitle">Un día hora por hora</h3>
+            <div class="day-ctl">
+              <button type="button" class="iconbtn" id="dayPrev" aria-label="Día anterior">‹</button>
+              <label for="day" class="vh">Fecha</label>
+              <input type="date" id="day">
+              <button type="button" class="iconbtn" id="dayNext" aria-label="Día siguiente">›</button>
+              <button type="button" class="btn-link" id="dayMax">Día de mayor demanda</button>
+            </div>
+          </div>
+          <div class="legend" id="dayLegend">
+            <span><i class="sw box" style="background: var(--s-load-soft); outline: 1.5px solid var(--s-load); outline-offset: -1.5px"></i>Carga</span>
+            <span><i class="sw" style="background: var(--s-pv)"></i>Generación FV</span>
+            <span><i class="sw" style="background: var(--s-imp)"></i>Importación de la red</span>
+            <span id="lgBat"><i class="sw" style="background: var(--s-bat)"></i>Estado de carga de la batería</span>
+          </div>
+          <div class="chart" id="dayChart"><svg id="daySvg" role="img" aria-labelledby="dayTitle"></svg><div class="tip" id="dayTip" hidden></div></div>
+          <p class="small muted" id="dayNote"></p>
+        </div>
+
+        <div class="panel chart-card" id="monCard">
+          <div class="sec-head"><h3 id="monTitle">Energía mensual: consumo e importación</h3></div>
+          <div class="legend">
+            <span><i class="sw box" style="background: var(--s-load)"></i>Consumo de las cargas</span>
+            <span><i class="sw box" style="background: var(--s-imp)"></i>Importación de la red</span>
+          </div>
+          <div class="chart" id="monChart"><svg id="monSvg" role="img" aria-labelledby="monTitle"></svg><div class="tip" id="monTip" hidden></div></div>
+          <details class="data-tbl" id="monDetails">
+            <summary>Ver los valores mensuales en una tabla</summary>
+            <div class="tbl-wrap"><table id="tblMon"></table></div>
+          </details>
+        </div>
+
+        <div class="sec cmp" id="cmpSec">
+          <div class="sec-head">
+            <h3>Comparar tamaños de FV</h3>
+            <div class="res-head actions">
+              <span class="chip warn" id="cmpStale" hidden>Desactualizada: cambió un parámetro</span>
+              <button type="button" class="btn" id="btnCompare">Comparar tamaños</button>
+            </div>
+          </div>
+          <p class="small ink2" id="cmpNote"></p>
+          <div class="tbl-wrap"><table id="tblCmp"></table></div>
+        </div>
+        <textarea id="copyBuf" class="copybuf" readonly hidden aria-label="Texto de la tabla para copiar"></textarea>
+      </section>
+    </div>
+
+    <section class="panel" id="fuentes" aria-labelledby="fuentes-t">
+      <div class="prose">
+        <h2 id="fuentes-t">Rendimiento solar de referencia</h2>
+        <p>El valor por defecto, <b class="num">4,0 kWh/kWp/día</b>, es genérico: no se pudo confirmar en una fuente abierta un valor de producción fotovoltaica específica (PVOUT) para cada ciudad. Valor de referencia, ajústelo con <a href="https://re.jrc.ec.europa.eu/pvg_tools/en/" target="_blank" rel="noopener">PVGIS</a> o <a href="https://globalsolaratlas.info/map" target="_blank" rel="noopener">Global Solar Atlas</a> para su sitio: ambos dan la energía anual o diaria por kWp instalado.</p>
+        <p>Como orden de magnitud, la tabla muestra la irradiación global horizontal por región del Atlas de Radiación Solar de Colombia y lo que daría con un rendimiento global del sistema (PR) de 0,80. Esa última columna es un cálculo de esta página, no un dato del atlas.</p>
+      </div>
+      <div class="tbl-wrap" style="margin-top:12px">
+        <table id="tblRef">
+          <thead><tr><th scope="col">Región del catálogo</th><th scope="col">Ciudad de referencia</th><th scope="col">Región del atlas</th><th scope="col" class="n">kWh/m²·año</th><th scope="col" class="n">kWh/m²·día</th><th scope="col" class="n">× PR 0,80 (kWh/kWp/día)</th><th scope="col"><span class="vh">Acción</span></th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <div class="prose" style="margin-top:12px">
+        <p class="small ink2">Fuente de la irradiación: IDEAM y UPME, <a href="https://www1.upme.gov.co:443/Hemeroteca/Impresos/Atlas_Radiacion_Solar_2005/1-Atlas_Radiacion_Solar.pdf" target="_blank" rel="noopener">Atlas de Radiación Solar de Colombia (2005)</a>, p. 20: «Una aproximación a la disponibilidad promedio multianual de energía solar por regiones». El atlas no asigna ciudades a regiones; la asignación de la tabla es de esta página. Para un sitio de la costa Pacífica el atlas da 1.278 kWh/m²·año (3,5 kWh/m²·día). El promedio nacional es cercano a 4,5 kWh/m² por día.</p>
+      </div>
+    </section>
+
+    <details class="panel metodo" id="metodo">
+      <summary>Cómo calcula esta herramienta</summary>
+      <div class="prose">
+        <h3>Datos</h3>
+        <p>Cada fila del CSV es la energía de una hora en kWh. Como dura una hora, ese número también es la potencia media de esa hora en kW. Se usa la columna <span class="mono">kwh</span> del paquete, que ya trae imputadas las horas en que el medidor marcó cero. Solo se ofrecen años con todas sus horas (8.760, u 8.784 si es bisiesto). Si el archivo tiene datos cada 15 minutos, se suman por hora.</p>
+        <p id="ejemploRegla">El ejemplo sintético usa esta regla para 2019: carga base de 15 kW todo el tiempo, más 25 kW de 7:00 a 18:00 de lunes a viernes, más 10 kW los sábados de 7:00 a 13:00. Cada hora se multiplica por (1 + r), con r uniforme entre −5 % y +5 % (generador mulberry32 con semilla fija 2019). No tiene festivos.</p>
+
+        <h3>Producción solar</h3>
+        <p class="formula">FV(h) = kWp × Y × f(h)</p>
+        <p>Y es el rendimiento específico en kWh/kWp/día: energía en corriente alterna a la salida del inversor, como el PVOUT de Global Solar Atlas. La forma f(h) reparte la energía del día con media onda senoidal entre la salida del sol t<sub>s</sub> y la puesta t<sub>p</sub>:</p>
+        <p class="formula">f(h) = ½ · [cos(π(a − t<sub>s</sub>)/D) − cos(π(b − t<sub>s</sub>)/D)],  D = t<sub>p</sub> − t<sub>s</sub></p>
+        <p>donde [a, b] es la parte de la hora h que cae entre la salida y la puesta. Las 24 fracciones suman 1, así que cada día produce exactamente kWp × Y. Por defecto el sol sale a las 6:00 y se pone a las 18:00, porque Colombia está cerca del ecuador.</p>
+
+        <h3>Batería</h3>
+        <p>La eficiencia de ida y vuelta η se reparte igual entre carga y descarga: η<sub>c</sub> = η<sub>d</sub> = √η. Si entran C kWh, se guardan C·√η; para entregar D kWh se sacan D/√η. Ni la carga ni la descarga pasan de la potencia P en una hora, y la energía guardada se mantiene entre SOC mín. × capacidad y SOC máx. × capacidad. La batería empieza el año en el SOC mínimo y esa energía inicial se cuenta como no solar.</p>
+        <ul>
+          <li><b>Autoconsumo.</b> Si la FV supera la carga, el excedente carga la batería hasta donde quepa y el resto se exporta. Si la carga supera la FV, la batería descarga hasta cubrir la diferencia o llegar al SOC mínimo. Nunca carga desde la red.</li>
+          <li><b>Recorte de pico.</b> La batería descarga solo la parte de la demanda neta (carga − FV) que pasa el umbral. Se recarga con el excedente solar y, si se habilita, desde la red en las horas que empiezan entre las 22:00 y las 4:00, sin que la importación pase el umbral. No descarga para autoconsumo.</li>
+        </ul>
+
+        <h3>Origen de la energía guardada</h3>
+        <p>Se lleva la energía de origen solar E<sub>s</sub> dentro de la energía guardada E. Al cargar con FV suben las dos; al cargar desde la red solo sube E. Al descargar, la fracción solar de lo entregado es E<sub>s</sub>/E (mezcla proporcional) y E<sub>s</sub> baja en esa misma proporción. Así la energía de la red que pasa por la batería no se cuenta como solar y nada se cuenta dos veces.</p>
+
+        <h3>Indicadores</h3>
+        <p class="formula">FV usada en sitio = FV directa + FV que entra a la batería = generación − exportación</p>
+        <p class="formula">Autoconsumo = FV usada en sitio / generación FV</p>
+        <p class="formula">Solar que llega a las cargas = FV directa + Σ (E<sub>s</sub>/E) · D</p>
+        <p class="formula">Autosuficiencia = solar que llega a las cargas / consumo de las cargas</p>
+        <p class="formula">Pérdidas de la batería = Σ C · (1 − √η) + Σ D · (1/√η − 1)</p>
+        <p>La demanda máxima de importación es la mayor potencia media horaria tomada de la red. «Sin FV ni batería» es la demanda máxima de la curva original. Las horas sobre el umbral cuentan las horas cuya importación pasa el umbral de demanda.</p>
+
+        <h3>Balance de comprobación</h3>
+        <p class="formula">importación + generación − exportación = consumo + pérdidas de batería + ΔE</p>
+        <p>ΔE es la energía guardada al final del año menos la del inicio; suele ser de unos pocos kWh. Si las dos sumas difieren en más de 0,1 % del consumo, la página lo marca en rojo.</p>
+
+        <h3>Comparar tamaños</h3>
+        <p>El tamaño de referencia es consumo anual / (días del año × Y): el sistema que en el año genera lo mismo que consumen las cargas. Se simulan 25, 50, 75, 100 y 150 % de ese tamaño con la misma batería y la misma estrategia.</p>
+
+        <h3>Batería necesaria para recortar todos los picos</h3>
+        <p>Para cada día se suma la energía de la demanda neta que queda por encima del umbral. El máximo diario, dividido por √η, es la energía que la batería tendría que tener guardada por encima del SOC mínimo; dividido además por (SOC máx. − SOC mín.) da la capacidad. Es una cota simple: supone la batería llena al empezar el día y no cuenta recargas entre picos.</p>
+
+        <h3>Simplificaciones</h3>
+        <ul>
+          <li>El perfil solar es el mismo todos los días: no hay nubes, estaciones ni días malos. La energía anual cuadra con Y; la de cada día no.</li>
+          <li>No hay pérdidas del inversor aparte de las que ya incluye Y, ni límite de potencia del inversor, ni efecto de la temperatura o las sombras.</li>
+          <li>No hay degradación de los módulos ni de la batería, ni autodescarga.</li>
+          <li>El paso es de una hora y el despacho solo mira la hora actual, sin pronóstico. Un pico de 15 minutos no se ve.</li>
+          <li>No calcula costos, tarifas ni remuneración de excedentes.</li>
+        </ul>
+      </div>
+    </details>
+  </main>
+</div>
+
+<script>
+/*CORE-START*/
+const Core = (function () {
+  'use strict';
+  const MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+  const MESES_L = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+  const DIAS = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
+  const pad = (x) => String(x).padStart(2, '0');
+
+  function isLeap(y) { return (y % 4 === 0 && y % 100 !== 0) || y % 400 === 0; }
+  function daysInYear(y) { return isLeap(y) ? 366 : 365; }
+
+  function calendar(year) {
+    const nDays = daysInYear(year), n = nDays * 24, t0 = Date.UTC(year, 0, 1);
+    const month = new Uint8Array(n), dayMonth = new Uint8Array(nDays), dayDom = new Uint8Array(nDays), dayDow = new Uint8Array(nDays);
+    for (let d = 0; d < nDays; d++) {
+      const dt = new Date(t0 + d * 864e5);
+      dayMonth[d] = dt.getUTCMonth(); dayDom[d] = dt.getUTCDate(); dayDow[d] = dt.getUTCDay();
+      month.fill(dayMonth[d], d * 24, d * 24 + 24);
+    }
+    return { year, n, nDays, month, dayMonth, dayDom, dayDow };
+  }
+  function dateISO(cal, d) { return cal.year + '-' + pad(cal.dayMonth[d] + 1) + '-' + pad(cal.dayDom[d]); }
+  function dateLong(cal, d) { return DIAS[cal.dayDow[d]] + ' ' + cal.dayDom[d] + ' de ' + MESES_L[cal.dayMonth[d]] + ' de ' + cal.year; }
+  function dayFromISO(cal, s) {
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s || '');
+    if (!m || +m[1] !== cal.year) return -1;
+    const d = Math.round((Date.UTC(+m[1], +m[2] - 1, +m[3]) - Date.UTC(cal.year, 0, 1)) / 864e5);
+    return d >= 0 && d < cal.nDays ? d : -1;
+  }
+
+  // Generador pseudoaleatorio con semilla (mulberry32)
+  function mulberry32(a) {
+    return function () {
+      a |= 0; a = (a + 0x6D2B79F5) | 0;
+      let t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  // Ejemplo sintético: 15 kW base + 25 kW de 7:00 a 18:00 lun-vie + 10 kW sábados 7:00 a 13:00, ruido ±5 %
+  function syntheticLoad(year, seed) {
+    year = year || 2019; seed = seed == null ? 2019 : seed;
+    const cal = calendar(year), rnd = mulberry32(seed), load = new Float64Array(cal.n);
+    for (let i = 0; i < cal.n; i++) {
+      const d = (i / 24) | 0, h = i % 24, dow = cal.dayDow[d];
+      let kw = 15;
+      if (dow >= 1 && dow <= 5 && h >= 7 && h < 18) kw += 25;
+      if (dow === 6 && h >= 7 && h < 13) kw += 10;
+      kw *= 1 + 0.05 * (2 * rnd() - 1);
+      load[i] = Math.round(kw * 100) / 100;
+    }
+    return load;
+  }
+
+  // ---------- lectura del CSV ----------
+  const RE_ISO = /^(\d{4})-(\d{1,2})-(\d{1,2})[ T](\d{1,2}):(\d{2})/;
+  const RE_DMY = /^(\d{1,2})\/(\d{1,2})\/(\d{4})[ T](\d{1,2}):(\d{2})/;
+  const unq = (s) => s.trim().replace(/^"(.*)"$/, '$1').trim();
+  function parseField(s, decComma) {
+    s = unq(s || '');
+    if (s === '') return NaN;
+    if (decComma && s.indexOf(',') >= 0) s = s.replace(/\./g, '').replace(',', '.');
+    return Number(s);
+  }
+  function parseCsv(text) {
+    if (typeof text !== 'string') return { ok: false, error: 'No se pudo leer el archivo como texto.' };
+    if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
+    const lines = text.split(/\r\n|\n|\r/);
+    let hi = 0;
+    while (hi < lines.length && !lines[hi].trim()) hi++;
+    if (hi >= lines.length) return { ok: false, error: 'El archivo está vacío.' };
+    const head = lines[hi];
+    const cnt = { ',': (head.match(/,/g) || []).length, ';': (head.match(/;/g) || []).length, '\t': (head.match(/\t/g) || []).length };
+    const delim = [';', '\t'].reduce((a, b) => (cnt[b] > cnt[a] ? b : a), ',');
+    const decComma = delim !== ',';
+    const cols = head.split(delim).map((c) => unq(c).toLowerCase());
+    let ci = cols.indexOf('fecha_hora_inicio');
+    if (ci < 0) ci = cols.findIndex((c) => c.indexOf('fecha') >= 0);
+    let vi = cols.indexOf('kwh');
+    if (vi < 0) vi = cols.findIndex((c) => c.indexOf('kwh') >= 0 && c.indexOf('medido') < 0);
+    let start = hi + 1;
+    if (ci < 0 || vi < 0) {
+      if (RE_ISO.test(cols[0] || '') || RE_DMY.test(cols[0] || '')) { ci = 0; vi = 1; start = hi; }
+      else return { ok: false, error: 'No se encontraron las columnas fecha_hora_inicio y kwh. Use un CSV del paquete «Casos AMI del curso».' };
+    }
+    const years = new Map();
+    let rows = 0, bad = 0;
+    for (let k = start; k < lines.length; k++) {
+      const line = lines[k];
+      if (!line || !line.trim()) continue;
+      const f = line.split(delim);
+      const ds = unq(f[ci] || '');
+      let m = RE_ISO.exec(ds), y, mo, d, h;
+      if (m) { y = +m[1]; mo = +m[2]; d = +m[3]; h = +m[4]; }
+      else if ((m = RE_DMY.exec(ds))) { d = +m[1]; mo = +m[2]; y = +m[3]; h = +m[4]; }
+      else { bad++; continue; }
+      const v = parseField(f[vi], decComma);
+      if (!isFinite(v) || h > 23 || mo < 1 || mo > 12 || d < 1 || d > 31) { bad++; continue; }
+      let Y = years.get(y);
+      if (!Y) { const n = daysInYear(y) * 24; Y = { load: new Float64Array(n), cnt: new Uint16Array(n) }; years.set(y, Y); }
+      const idx = Math.round((Date.UTC(y, mo - 1, d, h) - Date.UTC(y, 0, 1)) / 3.6e6);
+      if (idx < 0 || idx >= Y.load.length) { bad++; continue; }
+      Y.load[idx] += v; Y.cnt[idx]++; rows++;
+    }
+    if (!rows) return { ok: false, error: 'No se pudo leer ninguna fila con fecha y kWh.' };
+    const info = [], complete = [], data = {};
+    for (const [y, Y] of [...years].sort((a, b) => a[0] - b[0])) {
+      let filled = 0;
+      for (let i = 0; i < Y.cnt.length; i++) if (Y.cnt[i]) filled++;
+      info.push({ year: y, filled: filled, n: Y.cnt.length });
+      if (filled === Y.cnt.length) { complete.push(y); data[y] = Y.load; }
+    }
+    if (!complete.length) {
+      return { ok: false, info: info, error: 'El archivo no tiene ningún año completo. Horas por año: ' + info.map((r) => r.year + ': ' + fmt(r.filled) + ' de ' + fmt(r.n)).join('; ') + '.' };
+    }
+    return { ok: true, years: data, complete: complete, info: info, rows: rows, bad: bad, delim: delim };
+  }
+
+  // ---------- modelo solar ----------
+  function solarShape(sunrise, sunset) {
+    const D = sunset - sunrise, f = new Float64Array(24);
+    for (let h = 0; h < 24; h++) {
+      const a = Math.max(h, sunrise), b = Math.min(h + 1, sunset);
+      if (b > a) f[h] = 0.5 * (Math.cos(Math.PI * (a - sunrise) / D) - Math.cos(Math.PI * (b - sunrise) / D));
+    }
+    return f;
+  }
+
+  function stats(load) {
+    let s = 0, mx = -Infinity, imx = 0;
+    for (let i = 0; i < load.length; i++) { s += load[i]; if (load[i] > mx) { mx = load[i]; imx = i; } }
+    const mean = s / load.length;
+    return { total: s, peak: mx, iPeak: imx, dayPeak: (imx / 24) | 0, mean: mean, loadFactor: mx > 0 ? mean / mx : null };
+  }
+
+  function refKwp(consumo, yieldDay, nDays) { return yieldDay > 0 ? consumo / (nDays * yieldDay) : 0; }
+
+  // ---------- simulación horaria ----------
+  // p = { kwp, yieldDay, sunrise, sunset, strategy: 'auto'|'peak', T, gridCharge,
+  //       bat: { on, E, P, eta, socMin, socMax } }   (eta, socMin, socMax como fracciones)
+  function simulate(load, p, cal, opts) {
+    opts = opts || {};
+    const n = load.length, shape = solarShape(p.sunrise, p.sunset);
+    const kY = Math.max(0, p.kwp) * p.yieldDay;
+    const b = p.bat || {};
+    const on = !!b.on && b.E > 0 && b.P > 0;
+    const se = on ? Math.sqrt(b.eta) : 1;
+    const Emin = on ? b.E * b.socMin : 0, Emax = on ? b.E * b.socMax : 0;
+    const peak = p.strategy === 'peak', T = p.T, gridC = !!p.gridCharge;
+    const keep = opts.series !== false;
+    const S = keep ? { pv: new Float64Array(n), imp: new Float64Array(n), exp: new Float64Array(n), soc: new Float64Array(n), ch: new Float64Array(n), dis: new Float64Array(n) } : null;
+    const mLoad = new Array(12).fill(0), mImp = new Array(12).fill(0), mPv = new Array(12).fill(0), mExp = new Array(12).fill(0);
+    let e = Emin, es = 0;
+    const e0 = e;
+    let sLoad = 0, sPv = 0, sDir = 0, sCpv = 0, sCg = 0, sD = 0, sSol = 0, sExp = 0, sImp = 0, sLc = 0, sLd = 0;
+    let maxLoad = 0, maxImp = 0, iMaxImp = 0, hB = 0, hA = 0;
+    const tol = 1e-9;
+    for (let i = 0; i < n; i++) {
+      const h = i % 24, L = load[i], G = kY * shape[h];
+      const dir = G < L ? G : L;
+      const sur = G - dir, def = L - dir;
+      let cpv = 0, cg = 0, d = 0;
+      if (on) {
+        if (sur > 0) cpv = Math.max(0, Math.min(sur, b.P, (Emax - e) / se));
+        else if (!peak) { if (def > 0) d = Math.max(0, Math.min(def, b.P, (e - Emin) * se)); }
+        else if (def > T) d = Math.max(0, Math.min(def - T, b.P, (e - Emin) * se));
+        else if (gridC && (h >= 22 || h < 5)) cg = Math.max(0, Math.min(T - def, b.P, (Emax - e) / se));
+        if (cpv + cg > 0) { es += cpv * se; e += (cpv + cg) * se; }
+        if (d > 0) { const fr = e > 0 ? es / e : 0; sSol += fr * d; es -= fr * d / se; e -= d / se; }
+        sLc += (cpv + cg) * (1 - se); sLd += d * (1 / se - 1);
+      }
+      const ex = sur - cpv, im = def - d + cg;
+      sLoad += L; sPv += G; sDir += dir; sCpv += cpv; sCg += cg; sD += d; sExp += ex; sImp += im;
+      if (L > maxLoad) maxLoad = L;
+      if (im > maxImp) { maxImp = im; iMaxImp = i; }
+      if (T != null) { if (L > T + tol) hB++; if (im > T + tol) hA++; }
+      const m = cal ? cal.month[i] : 0;
+      mLoad[m] += L; mImp[m] += im; mPv[m] += G; mExp[m] += ex;
+      if (keep) { S.pv[i] = G; S.imp[i] = im; S.exp[i] = ex; S.soc[i] = e; S.ch[i] = cpv + cg; S.dis[i] = d; }
+    }
+    const loss = sLc + sLd, dE = e - e0;
+    const sitio = sDir + sCpv, solCargas = sDir + sSol;
+    const lhs = sImp + sPv - sExp, rhs = sLoad + loss + dE;
+    return {
+      on: on, n: n, consumo: sLoad, gen: sPv, dir: sDir, cpv: sCpv, cg: sCg, dis: sD, solBat: sSol,
+      exp: sExp, imp: sImp, loss: loss, lossCharge: sLc, lossDischarge: sLd, dE: dE, e0: e0, eEnd: e,
+      sitio: sitio, solCargas: solCargas,
+      autoconsumo: sPv > 0 ? sitio / sPv : null,
+      autosuficiencia: sLoad > 0 ? solCargas / sLoad : null,
+      picoAntes: maxLoad, picoDespues: maxImp, iPicoDespues: iMaxImp,
+      horasAntes: T != null ? hB : null, horasDespues: T != null ? hA : null,
+      balance: { lhs: lhs, rhs: rhs, rhsSinDE: sLoad + loss, err: sLoad > 0 ? Math.abs(lhs - rhs) / sLoad : 0, errSinDE: sLoad > 0 ? Math.abs(lhs - (sLoad + loss)) / sLoad : 0 },
+      monthly: { load: mLoad, imp: mImp, pv: mPv, exp: mExp },
+      series: S, Emin: Emin, Emax: Emax, capacity: on ? b.E : 0
+    };
+  }
+
+  // Energía mínima de batería para no pasar el umbral: máximo diario de la energía sobre el umbral / η_d
+  function peakNeed(load, pv, T, eta, socMin, socMax) {
+    const nd = Math.floor(load.length / 24);
+    let best = 0, bestD = -1, pmax = 0, hours = 0;
+    for (let d = 0; d < nd; d++) {
+      let s = 0;
+      for (let h = 0; h < 24; h++) {
+        const i = d * 24 + h, over = load[i] - (pv ? pv[i] : 0) - T;
+        if (over > 1e-9) { s += over; hours++; if (over > pmax) pmax = over; }
+      }
+      if (s > best) { best = s; bestD = d; }
+    }
+    const stored = best / Math.sqrt(eta);
+    const win = socMax - socMin;
+    return { energyDay: best, day: bestD, stored: stored, capacity: win > 0 ? stored / win : null, pmax: pmax, hours: hours };
+  }
+
+  const FACTORES = [0.25, 0.5, 0.75, 1, 1.5];
+  function compareSizes(load, p, cal, ref) {
+    return FACTORES.map(function (f) {
+      const r = simulate(load, Object.assign({}, p, { kwp: f * ref }), cal, { series: false });
+      return { factor: f, kwp: f * ref, gen: r.gen, autoconsumo: r.autoconsumo, autosuficiencia: r.autosuficiencia,
+        exportPct: r.gen > 0 ? r.exp / r.gen : null, imp: r.imp, picoDespues: r.picoDespues };
+    });
+  }
+
+  // ---------- formato es-CO ----------
+  function fmt(x, dec, ascii) {
+    dec = dec || 0;
+    if (x == null || !isFinite(x)) return '—';
+    const s = Math.abs(x).toFixed(dec);
+    const parts = s.split('.');
+    const ip = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    const out = parts[1] ? ip + ',' + parts[1] : ip;
+    const neg = x < 0 && Number(s) !== 0;
+    return (neg ? (ascii ? '-' : '−') : '') + out;
+  }
+  function fmtPct(x, dec, ascii) {
+    if (x == null || !isFinite(x)) return '—';
+    return fmt(x * 100, dec == null ? 1 : dec, ascii) + ' %';
+  }
+  function parseNum(str) {
+    if (typeof str === 'number') return str;
+    let s = String(str == null ? '' : str).trim().replace(/\s/g, '').replace(/−/g, '-');
+    if (!s) return NaN;
+    const hasC = s.indexOf(',') >= 0, hasD = s.indexOf('.') >= 0;
+    if (hasC && hasD) s = s.replace(/\./g, '').replace(',', '.');
+    else if (hasC) s = s.replace(',', '.');
+    else if (hasD && /^-?\d{1,3}(\.\d{3})+$/.test(s)) s = s.replace(/\./g, '');
+    if (!/^-?(\d+\.?\d*|\.\d+)$/.test(s)) return NaN;
+    return Number(s);
+  }
+
+  return { MESES, MESES_L, isLeap, daysInYear, calendar, dateISO, dateLong, dayFromISO, mulberry32, syntheticLoad,
+    parseCsv, solarShape, stats, refKwp, simulate, peakNeed, compareSizes, FACTORES, fmt, fmtPct, parseNum };
+})();
+/*CORE-END*/
+
+(function () {
+  'use strict';
+  const $ = (id) => document.getElementById(id);
+  const fmt = Core.fmt, pct = Core.fmtPct;
+  const LS_KEY = 'simulador-fv-v1';
+  const DEF = { kwp: 80, yieldDay: 4, sunrise: 6, sunset: 18, batOn: true, batE: 60, batP: 30, eta: 90, socMin: 10, socMax: 100, strategy: 'auto', gridCharge: true };
+  const REGIONES = [
+    { reg: 'Caribe', city: 'Barranquilla', atlas: 'Costa Atlántica', kwhAno: 1825 },
+    { reg: 'Suroccidente', city: 'Cali', atlas: 'Andina', kwhAno: 1643 },
+    { reg: 'Centro-oriente', city: 'Bogotá', atlas: 'Andina', kwhAno: 1643 },
+    { reg: 'Antioquia', city: 'Medellín', atlas: 'Andina', kwhAno: 1643 },
+    { reg: 'Nordeste', city: 'Bucaramanga', atlas: 'Andina', kwhAno: 1643 }
+  ];
+
+  // ---------- preferencias ----------
+  const P = Object.assign({}, DEF);
+  try {
+    const raw = localStorage.getItem(LS_KEY);
+    if (raw) {
+      const o = JSON.parse(raw);
+      for (const k of Object.keys(DEF)) if (o && typeof o[k] === typeof DEF[k]) P[k] = o[k];
+    }
+  } catch (e) { /* sin almacenamiento */ }
+  function savePrefs() { try { localStorage.setItem(LS_KEY, JSON.stringify(P)); } catch (e) { /* sin almacenamiento */ } }
+
+  // ---------- estado ----------
+  const S = { ds: null, year: null, load: null, cal: null, st: null, T: null, day: 0, res: null, cmp: null, cmpStale: false };
+
+  function setDataset(ds, preferYear) {
+    S.ds = ds;
+    const ys = ds.complete;
+    const y = ys.indexOf(preferYear) >= 0 ? preferYear : (ys.indexOf(2019) >= 0 ? 2019 : ys[ys.length - 1]);
+    const sel = $('year');
+    sel.innerHTML = ys.map((v) => '<option value="' + v + '">' + v + '</option>').join('');
+    sel.value = String(y);
+    sel.disabled = ys.length < 2;
+    $('dsChip').textContent = ds.isExample ? 'Ejemplo sintético, no es un caso real' : 'Archivo: ' + ds.name;
+    $('dsChip').className = 'chip ' + (ds.isExample ? 'warn' : 'info');
+    $('btnExample').hidden = !!ds.isExample;
+    $('yearNote').textContent = ds.isExample ? 'El ejemplo tiene un solo año.' : (ys.length > 1 ? 'Años completos en el archivo: ' + ys.join(', ') + '.' : 'Único año completo en el archivo.');
+    $('dsNote').textContent = ds.isExample
+      ? 'Regla del ejemplo: 15 kW de base todo el tiempo, más 25 kW de 7:00 a 18:00 de lunes a viernes y 10 kW los sábados de 7:00 a 13:00, con ruido de ±5 % y semilla fija. Cargue su archivo para trabajar con un caso real.'
+      : 'Se usa la columna kwh (energía de cada hora = potencia media en kW). ' + (ds.bad ? fmt(ds.bad) + ' filas no se pudieron leer y se omitieron.' : '');
+    setYear(y);
+  }
+
+  function setYear(y) {
+    S.year = y;
+    S.load = S.ds.years[y];
+    S.cal = Core.calendar(y);
+    S.st = Core.stats(S.load);
+    S.T = 0.9 * S.st.peak;
+    S.day = S.st.dayPeak;
+    S.cmp = null; S.cmpStale = false;
+    $('ds-consumo').textContent = fmt(S.st.total) + ' kWh';
+    $('ds-pico').textContent = fmt(S.st.peak, 1) + ' kW';
+    $('ds-media').textContent = fmt(S.st.mean, 1) + ' kW';
+    $('ds-fc').textContent = fmt(S.st.loadFactor, 2);
+    $('threshold').value = fmt(S.T, 1);
+    const dayIn = $('day');
+    dayIn.min = Core.dateISO(S.cal, 0);
+    dayIn.max = Core.dateISO(S.cal, S.cal.nDays - 1);
+    $('res-t').textContent = 'Resultados del año ' + y;
+    run(true);
+  }
+
+  // ---------- entradas ----------
+  const FIELDS = [
+    { id: 'kwp', key: 'kwp', min: 0, max: 100000, dec: 1, err: 'kwp-err', msg: 'Escriba una potencia entre 0 y 100.000 kWp.' },
+    { id: 'yield', key: 'yieldDay', min: 0.5, max: 8, dec: 2, err: 'yield-err', msg: 'Escriba un rendimiento entre 0,5 y 8 kWh/kWp/día.' },
+    { id: 'sunrise', key: 'sunrise', min: 4, max: 9, dec: 2, err: 'sun-err', msg: 'La salida del sol debe estar entre 4 y 9 h.' },
+    { id: 'sunset', key: 'sunset', min: 15, max: 21, dec: 2, err: 'sun-err', msg: 'La puesta del sol debe estar entre 15 y 21 h.' },
+    { id: 'batE', key: 'batE', min: 0.1, max: 1e6, dec: 1, err: 'bat-err', msg: 'La capacidad debe ser mayor que 0 kWh.' },
+    { id: 'batP', key: 'batP', min: 0.1, max: 1e6, dec: 1, err: 'bat-err', msg: 'La potencia debe ser mayor que 0 kW.' },
+    { id: 'eta', key: 'eta', min: 50, max: 100, dec: 1, err: 'bat-err', msg: 'La eficiencia de ida y vuelta debe estar entre 50 y 100 %.' },
+    { id: 'socMin', key: 'socMin', min: 0, max: 90, dec: 1, err: 'bat-err', msg: 'El SOC mínimo debe estar entre 0 y 90 %.' },
+    { id: 'socMax', key: 'socMax', min: 10, max: 100, dec: 1, err: 'bat-err', msg: 'El SOC máximo debe estar entre 10 y 100 %.' }
+  ];
+  const trimDec = (x, dec) => { const s = fmt(x, dec); return s.indexOf(',') >= 0 ? s.replace(/,?0+$/, '') : s; };
+
+  function showErr(errId, msg) { const el = $(errId); if (!el) return; el.textContent = msg || ''; el.hidden = !msg; }
+
+  function validateAll() {
+    const bad = {};
+    const errs = {};
+    const vals = {};
+    for (const f of FIELDS) {
+      const v = Core.parseNum($(f.id).value);
+      if (!isFinite(v) || v < f.min || v > f.max) { bad[f.id] = true; errs[f.err] = errs[f.err] || f.msg; }
+      else vals[f.key] = v;
+    }
+    if (!bad.sunrise && !bad.sunset && vals.sunset - vals.sunrise < 8) { bad.sunrise = bad.sunset = true; errs['sun-err'] = 'Entre la salida y la puesta del sol debe haber al menos 8 horas.'; }
+    if (!bad.socMin && !bad.socMax && vals.socMax <= vals.socMin) { bad.socMin = bad.socMax = true; errs['bat-err'] = errs['bat-err'] || 'El SOC máximo debe ser mayor que el mínimo.'; }
+    for (const f of FIELDS) {
+      $(f.id).parentElement.classList.toggle('bad', !!bad[f.id]);
+      $(f.id).setAttribute('aria-invalid', bad[f.id] ? 'true' : 'false');
+    }
+    ['kwp-err', 'yield-err', 'sun-err', 'bat-err'].forEach((k) => showErr(k, errs[k]));
+    for (const f of FIELDS) if (!bad[f.id]) P[f.key] = vals[f.key];
+    return Object.keys(bad).length === 0;
+  }
+
+  function fillInputs() {
+    for (const f of FIELDS) $(f.id).value = trimDec(P[f.key], f.dec);
+    $('batOn').checked = !!P.batOn;
+    $('strat-auto').checked = P.strategy !== 'peak';
+    $('strat-peak').checked = P.strategy === 'peak';
+    $('gridCharge').checked = !!P.gridCharge;
+  }
+
+  function params() {
+    return {
+      kwp: P.kwp, yieldDay: P.yieldDay, sunrise: P.sunrise, sunset: P.sunset,
+      strategy: P.strategy, T: S.T, gridCharge: P.gridCharge,
+      bat: { on: P.batOn, E: P.batE, P: P.batP, eta: P.eta / 100, socMin: P.socMin / 100, socMax: P.socMax / 100 }
+    };
+  }
+
+  // ---------- simulación y salida ----------
+  function run(resetDay) {
+    if (!S.load) return;
+    const p = params();
+    S.res = Core.simulate(S.load, p, S.cal);
+    if (resetDay) S.day = S.st.dayPeak;
+    if (S.cmp && !resetDay) markStale(true);
+    renderControls();
+    renderResults();
+    renderDay();
+    renderMonthly();
+    renderCompare();
+  }
+
+  function renderControls() {
+    const ref = Core.refKwp(S.st.total, P.yieldDay, S.cal.nDays);
+    S.ref = ref;
+    $('kwp-ref').textContent = 'Tamaño de referencia: ' + fmt(ref, 1) + ' kWp (genera en el año lo mismo que consumen las cargas).';
+    const genY = P.kwp * P.yieldDay * S.cal.nDays;
+    $('pv-sum').textContent = 'Genera ' + fmt(genY) + ' kWh al año (' + fmt(P.yieldDay * S.cal.nDays) + ' kWh/kWp·año) y hasta ' + fmt(P.kwp * P.yieldDay * Core.solarShape(P.sunrise, P.sunset).reduce((a, b) => Math.max(a, b), 0), 1) + ' kW en la hora de más sol.';
+    $('batBody').disabled = !P.batOn;
+    const win = P.batE * (P.socMax - P.socMin) / 100;
+    $('bat-sum').textContent = 'Ventana útil: ' + fmt(win, 1) + ' kWh. Eficiencia en carga y en descarga: √η = ' + fmt(Math.sqrt(P.eta / 100) * 100, 1) + ' % cada una.';
+    const peak = P.strategy === 'peak';
+    $('peakBox').hidden = !peak;
+    $('strat-desc').textContent = peak
+      ? 'Descarga solo cuando la demanda neta (carga − FV) pasa el umbral.'
+      : 'Carga con el excedente solar y descarga cuando la carga supera la FV.';
+    $('thr-hint').textContent = '= ' + fmt(S.T / S.st.peak * 100, 1) + ' % de la demanda máxima del año (' + fmt(S.st.peak, 1) + ' kW).';
+  }
+
+  function setText(id, t) { const el = $(id); if (el) el.textContent = t; }
+
+  function renderResults() {
+    const r = S.res, c = r.consumo;
+    const kwh = (x) => fmt(x, 1) + ' kWh';
+    const share = (x) => (c > 0 ? pct(x / c) : '—');
+    const rows = [
+      ['consumo', r.consumo], ['gen', r.gen], ['dir', r.dir], ['cpv', r.cpv], ['exp', r.exp], ['sitio', r.sitio],
+      ['imp', r.imp], ['cg', r.cg], ['dis', r.dis], ['solbat', r.solBat], ['loss', r.loss], ['solcargas', r.solCargas]
+    ];
+    for (const [k, v] of rows) { setText('r-' + k, kwh(v)); setText('p-' + k, share(v)); }
+    $('r-cg').parentElement.hidden = !(r.on && P.strategy === 'peak' && P.gridCharge);
+    setText('r-pico-antes', fmt(r.picoAntes, 1) + ' kW');
+    setText('r-pico-despues', fmt(r.picoDespues, 1) + ' kW');
+    setText('l-horas', 'Horas sobre el umbral de ' + fmt(S.T, 1) + ' kW (' + fmt(S.T / S.st.peak * 100, 1) + ' % de la demanda máxima)');
+    setText('r-horas-antes', fmt(r.horasAntes) + ' h');
+    setText('r-horas-despues', fmt(r.horasDespues) + ' h');
+
+    setText('k-autoc', pct(r.autoconsumo));
+    setText('k-autos', pct(r.autosuficiencia));
+    $('k-imp').innerHTML = esc(fmt(r.imp)) + ' <small>kWh</small>';
+    const ahorro = r.consumo > 0 ? 1 - r.imp / r.consumo : 0;
+    setText('k-imp-s', ahorro >= -0.0000005
+      ? fmt(ahorro * 100, 1) + ' % menos que comprar todo el consumo (' + fmt(r.consumo) + ' kWh)'
+      : fmt(r.imp - r.consumo, 1) + ' kWh más que el consumo: son las pérdidas de la batería');
+    $('k-pico').innerHTML = esc(fmt(r.picoDespues, 1)) + ' <small>kW</small>';
+    setText('k-pico-s', 'Sin FV ni batería: ' + fmt(r.picoAntes, 1) + ' kW (' + (r.picoAntes > 0 ? fmt((r.picoDespues / r.picoAntes - 1) * 100, 1) : '0') + ' %)');
+
+    // balance
+    const b = r.balance;
+    setText('b-lhs', fmt(b.lhs, 1));
+    setText('b-rhs', fmt(b.rhs, 1));
+    setText('b-dE-l', Math.abs(r.dE) > 0.05 ? ' + energía que queda guardada (' + fmt(r.dE, 1) + ' kWh)' : '');
+    const errTxt = b.err < 0.000005 ? '< 0,001 %' : fmt(b.err * 100, 3) + ' %';
+    setText('b-err', errTxt);
+    const ok = b.err < 0.001;
+    $('balChip').textContent = ok ? 'El balance cierra' : 'El balance no cierra';
+    $('balChip').className = 'chip ' + (ok ? 'good' : 'alert');
+
+    // nota CREG
+    const note = $('cregNote');
+    if (P.kwp > 1000) {
+      note.hidden = false;
+      setText('cregTitle', 'Más de 1 MW: ya no es autogeneración a pequeña escala');
+      setText('cregText', 'Según la CREG 174 de 2021 el autogenerador a pequeña escala llega hasta 1 MW; por encima aplican las reglas de autogeneración a gran escala. Desde 100 kW ya cambian el estudio de conexión y la remuneración de excedentes. La autogeneración de 10 kVA o más requiere certificación plena RETIE (Res. MME 40284 de 2026). Aquí se comparan los kWp como aproximación de la potencia instalada.');
+    } else if (P.kwp > 100) {
+      note.hidden = false;
+      setText('cregTitle', 'Más de 100 kW: cambian las reglas de conexión');
+      setText('cregText', 'Con más de 100 kW, la CREG 174 de 2021 cambia el estudio de conexión y la remuneración de excedentes. El autogenerador a pequeña escala llega hasta 1 MW. La autogeneración de 10 kVA o más requiere certificación plena RETIE (Res. MME 40284 de 2026). Aquí se comparan los kWp como aproximación de la potencia instalada.');
+    } else note.hidden = true;
+
+    // necesidad de batería para recorte de pico
+    const pn = $('peakNeed');
+    if (P.strategy === 'peak' && P.batOn) {
+      const need = Core.peakNeed(S.load, r.series.pv, S.T, P.eta / 100, P.socMin / 100, P.socMax / 100);
+      S.need = need;
+      pn.hidden = false;
+      if (need.energyDay <= 0) {
+        pn.innerHTML = '<h3>Recorte de pico</h3><p>Con ' + esc(fmt(P.kwp, 1)) + ' kWp la demanda neta nunca pasa el umbral de ' + esc(fmt(S.T, 1)) + ' kW: la batería no tiene picos que recortar.</p>';
+      } else {
+        const okCap = r.picoDespues <= S.T + 1e-9;
+        pn.innerHTML = '<h3>Recorte de pico</h3><p>Para que la importación nunca pase de ' + esc(fmt(S.T, 1)) + ' kW, la batería tendría que entregar hasta <b class="num">' + esc(fmt(need.energyDay, 1)) + ' kWh</b> en un día (' + esc(Core.dateISO(S.cal, need.day)) + ') y hasta <b class="num">' + esc(fmt(need.pmax, 1)) + ' kW</b>. Con √η = ' + esc(fmt(Math.sqrt(P.eta / 100) * 100, 1)) + ' % eso exige <b class="num">' + esc(fmt(need.stored, 1)) + ' kWh</b> guardados sobre el SOC mínimo, es decir, una capacidad de al menos <b class="num">' + esc(fmt(need.capacity, 1)) + ' kWh</b> con la ventana de SOC elegida. ' +
+          (okCap ? 'Con la batería actual la importación no pasa el umbral.' : 'Con la batería actual quedan ' + esc(fmt(r.horasDespues)) + ' h sobre el umbral y la demanda máxima baja a ' + esc(fmt(r.picoDespues, 1)) + ' kW.') + '</p>';
+      }
+    } else pn.hidden = true;
+  }
+
+  const esc = (s) => String(s).replace(/[&<>"]/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
+
+  // ---------- gráficas ----------
+  function niceScale(max, count) {
+    if (!(max > 0)) max = 1;
+    const raw = max / (count || 4), mag = Math.pow(10, Math.floor(Math.log10(raw))), nrm = raw / mag;
+    const step = (nrm <= 1 ? 1 : nrm <= 2 ? 2 : nrm <= 2.5 ? 2.5 : nrm <= 5 ? 5 : 10) * mag;
+    const top = Math.ceil(max / step - 1e-9) * step;
+    const ticks = [];
+    for (let v = 0; v <= top + step * 1e-6; v += step) ticks.push(v);
+    const dec = step >= 1 ? (Number.isInteger(step) ? 0 : 1) : Math.min(3, Math.ceil(-Math.log10(step)) + (Number.isInteger(step * Math.pow(10, Math.ceil(-Math.log10(step)))) ? 0 : 1));
+    return { top: top, step: step, ticks: ticks, dec: dec };
+  }
+  function stepPath(vals, x, y) {
+    let d = 'M' + x(0).toFixed(1) + ',' + y(vals[0]).toFixed(1);
+    for (let h = 0; h < vals.length; h++) {
+      d += 'H' + x(h + 1).toFixed(1);
+      if (h + 1 < vals.length) d += 'V' + y(vals[h + 1]).toFixed(1);
+    }
+    return d;
+  }
+  function placeTip(tip, box, px, py) {
+    tip.hidden = false;
+    const w = tip.offsetWidth, h = tip.offsetHeight, W = box.clientWidth;
+    let left = px + 14;
+    if (left + w > W) left = px - w - 14;
+    if (left < 0) left = Math.max(0, Math.min(W - w, px - w / 2));
+    let top = py - h - 10;
+    if (top < 0) top = py + 16;
+    tip.style.transform = 'translate(' + Math.round(left) + 'px,' + Math.round(top) + 'px)';
+  }
+  const swatch = (v) => '<i class="sw" style="background:var(' + v + ')"></i>';
+
+  function renderDay() {
+    const box = $('dayChart'), svg = $('daySvg'), tip = $('dayTip');
+    const W = Math.max(280, box.clientWidth || 600);
+    const narrow = W < 560;
+    const r = S.res, d = S.day, i0 = d * 24, Sx = r.series;
+    const L = Array.from(S.load.subarray(i0, i0 + 24));
+    const G = Array.from(Sx.pv.subarray(i0, i0 + 24));
+    const I = Array.from(Sx.imp.subarray(i0, i0 + 24));
+    const X = Array.from(Sx.exp.subarray(i0, i0 + 24));
+    const batOn = r.on;
+    const cap = r.capacity;
+    const socAt = (k) => { const j = i0 + k - 1; return j < 0 ? r.e0 : Sx.soc[j]; };
+    const soc = []; for (let k = 0; k <= 24; k++) soc.push(cap > 0 ? socAt(k) / cap * 100 : 0);
+
+    $('dayTitle').textContent = 'Un día hora por hora: ' + Core.dateLong(S.cal, d);
+    $('day').value = Core.dateISO(S.cal, d);
+    $('lgBat').hidden = !batOn;
+
+    const padL = 52, padR = 14, y1 = 24, h1 = narrow ? 170 : 200;
+    const b1 = y1 + h1, y2 = b1 + 34, h2 = narrow ? 78 : 92, b2 = y2 + h2;
+    const bottom = batOn ? b2 : b1;
+    const H = bottom + 28;
+    const pw = W - padL - padR;
+    const x = (h) => padL + (h / 24) * pw;
+    const sc = niceScale(Math.max(1e-6, Math.max.apply(null, L.concat(G, I))), narrow ? 4 : 5);
+    const y = (v) => y1 + h1 * (1 - v / sc.top);
+    const ys = (v) => y2 + h2 * (1 - v / 100);
+    let s = '';
+    s += '<text x="' + padL + '" y="13" font-size="11" fill="var(--muted)" font-family="var(--f-mono)">Potencia media horaria, kW</text>';
+    for (const t of sc.ticks) {
+      s += '<line x1="' + padL + '" x2="' + (W - padR) + '" y1="' + y(t).toFixed(1) + '" y2="' + y(t).toFixed(1) + '" stroke="' + (t === 0 ? 'var(--line-strong)' : 'var(--grid)') + '" stroke-width="1"/>';
+      s += '<text x="' + (padL - 7) + '" y="' + (y(t) + 4).toFixed(1) + '" text-anchor="end" font-size="11" fill="var(--muted)" font-family="var(--f-mono)">' + fmt(t, sc.dec) + '</text>';
+    }
+    // carga (área escalonada)
+    const lp = stepPath(L, x, y);
+    s += '<path d="' + lp + 'V' + y(0).toFixed(1) + 'H' + x(0).toFixed(1) + 'Z" fill="var(--s-load-soft)" stroke="none"/>';
+    s += '<path d="' + lp + '" fill="none" stroke="var(--s-load)" stroke-width="1.5" stroke-linejoin="round"/>';
+    s += '<path d="' + stepPath(I, x, y) + '" fill="none" stroke="var(--s-imp)" stroke-width="2" stroke-linejoin="round"/>';
+    s += '<path d="' + stepPath(G, x, y) + '" fill="none" stroke="var(--s-pv)" stroke-width="2" stroke-linejoin="round"/>';
+    if (P.strategy === 'peak' && batOn && S.T <= sc.top) {
+      s += '<line x1="' + padL + '" x2="' + (W - padR) + '" y1="' + y(S.T).toFixed(1) + '" y2="' + y(S.T).toFixed(1) + '" stroke="var(--alert)" stroke-width="1.25" stroke-dasharray="5 4"/>';
+      s += '<text x="' + (W - padR) + '" y="' + (y(S.T) - 5).toFixed(1) + '" text-anchor="end" font-size="11" fill="var(--alert-text)" font-family="var(--f-mono)" stroke="var(--surface)" stroke-width="4" stroke-linejoin="round" paint-order="stroke">umbral ' + fmt(S.T, 1) + ' kW</text>';
+    }
+    if (batOn) {
+      s += '<text x="' + padL + '" y="' + (y2 - 10) + '" font-size="11" fill="var(--muted)" font-family="var(--f-mono)">Estado de carga de la batería, %</text>';
+      for (const t of [0, 50, 100]) {
+        s += '<line x1="' + padL + '" x2="' + (W - padR) + '" y1="' + ys(t).toFixed(1) + '" y2="' + ys(t).toFixed(1) + '" stroke="' + (t === 0 ? 'var(--line-strong)' : 'var(--grid)') + '" stroke-width="1"/>';
+        s += '<text x="' + (padL - 7) + '" y="' + (ys(t) + 4).toFixed(1) + '" text-anchor="end" font-size="11" fill="var(--muted)" font-family="var(--f-mono)">' + t + '</text>';
+      }
+      if (P.socMin > 0) s += '<line x1="' + padL + '" x2="' + (W - padR) + '" y1="' + ys(P.socMin).toFixed(1) + '" y2="' + ys(P.socMin).toFixed(1) + '" stroke="var(--s-bat)" stroke-width="1" stroke-dasharray="3 3" opacity=".7"/>';
+      let pl = '';
+      for (let k = 0; k <= 24; k++) pl += (k ? 'L' : 'M') + x(k).toFixed(1) + ',' + ys(soc[k]).toFixed(1);
+      s += '<path d="' + pl + 'L' + x(24).toFixed(1) + ',' + ys(0).toFixed(1) + 'L' + x(0).toFixed(1) + ',' + ys(0).toFixed(1) + 'Z" fill="var(--s-bat-soft)" stroke="none"/>';
+      s += '<path d="' + pl + '" fill="none" stroke="var(--s-bat)" stroke-width="2" stroke-linejoin="round"/>';
+    }
+    const step = narrow ? 6 : 3;
+    for (let h = 0; h <= 24; h += step) {
+      s += '<line x1="' + x(h).toFixed(1) + '" x2="' + x(h).toFixed(1) + '" y1="' + bottom + '" y2="' + (bottom + 4) + '" stroke="var(--line-strong)"/>';
+      s += '<text x="' + x(h).toFixed(1) + '" y="' + (bottom + 17) + '" text-anchor="' + (h === 0 ? 'start' : h === 24 ? 'end' : 'middle') + '" font-size="11" fill="var(--muted)" font-family="var(--f-mono)">' + h + ':00</text>';
+    }
+    s += '<rect id="dayHover" x="0" y="' + y1 + '" width="0" height="' + (bottom - y1) + '" fill="var(--hover-band)" pointer-events="none"/>';
+    s += '<rect x="' + padL + '" y="' + y1 + '" width="' + pw + '" height="' + (bottom - y1) + '" fill="transparent" id="dayHit"/>';
+    svg.setAttribute('viewBox', '0 0 ' + W + ' ' + H);
+    svg.setAttribute('width', W);
+    svg.setAttribute('height', H);
+    svg.innerHTML = s;
+
+    const hit = svg.querySelector('#dayHit'), band = svg.querySelector('#dayHover');
+    const show = (ev) => {
+      const rect = svg.getBoundingClientRect();
+      const px = (ev.clientX - rect.left) * (W / rect.width);
+      const h = Math.min(23, Math.max(0, Math.floor((px - padL) / pw * 24)));
+      band.setAttribute('x', x(h).toFixed(1)); band.setAttribute('width', (x(h + 1) - x(h)).toFixed(1));
+      let t = '<div class="t-h">' + h + ':00 a ' + (h + 1) + ':00</div>';
+      t += '<div class="t-r">' + swatch('--s-load') + 'Carga ' + fmt(L[h], 1) + ' kW</div>';
+      t += '<div class="t-r">' + swatch('--s-pv') + 'FV ' + fmt(G[h], 1) + ' kW</div>';
+      t += '<div class="t-r">' + swatch('--s-imp') + 'Importación ' + fmt(I[h], 1) + ' kW</div>';
+      if (X[h] > 0.005) t += '<div class="t-r"><i class="sw" style="background:transparent"></i>Exportación ' + fmt(X[h], 1) + ' kW</div>';
+      if (batOn) t += '<div class="t-r">' + swatch('--s-bat') + 'SOC al cierre ' + fmt(soc[h + 1], 0) + ' %</div>';
+      tip.innerHTML = t;
+      placeTip(tip, box, (ev.clientX - rect.left), (ev.clientY - rect.top));
+    };
+    hit.addEventListener('pointermove', show);
+    hit.addEventListener('pointerdown', show);
+    hit.addEventListener('pointerleave', () => { tip.hidden = true; band.setAttribute('width', '0'); });
+
+    const dayE = L.reduce((a, b) => a + b, 0), dayG = G.reduce((a, b) => a + b, 0), dayI = I.reduce((a, b) => a + b, 0);
+    $('dayNote').textContent = 'En este día: carga ' + fmt(dayE) + ' kWh, FV ' + fmt(dayG) + ' kWh, importación ' + fmt(dayI) + ' kWh, demanda máxima ' + fmt(Math.max.apply(null, L), 1) + ' kW sin sistema y ' + fmt(Math.max.apply(null, I), 1) + ' kW con el sistema.' + (d === S.st.dayPeak ? ' Es el día de mayor demanda del año.' : '');
+  }
+
+  function renderMonthly() {
+    const box = $('monChart'), svg = $('monSvg'), tip = $('monTip');
+    const W = Math.max(280, box.clientWidth || 600);
+    const narrow = W < 560;
+    const m = S.res.monthly;
+    const maxV = Math.max.apply(null, m.load.concat(m.imp));
+    const useM = maxV >= 100000;
+    const k = useM ? 1000 : 1, unit = useM ? 'MWh' : 'kWh';
+    const C = m.load.map((v) => v / k), I = m.imp.map((v) => v / k);
+    const padL = 56, padR = 10, y1 = 24, h1 = narrow ? 170 : 200, b1 = y1 + h1, H = b1 + 26;
+    const pw = W - padL - padR, gw = pw / 12;
+    const sc = niceScale(Math.max(1e-6, Math.max.apply(null, C.concat(I))), 4);
+    const y = (v) => y1 + h1 * (1 - v / sc.top);
+    const bw = Math.max(3, Math.min(20, (gw - 8) / 2 - 1));
+    let s = '<text x="' + padL + '" y="13" font-size="11" fill="var(--muted)" font-family="var(--f-mono)">Energía del mes, ' + unit + '</text>';
+    for (const t of sc.ticks) {
+      s += '<line x1="' + padL + '" x2="' + (W - padR) + '" y1="' + y(t).toFixed(1) + '" y2="' + y(t).toFixed(1) + '" stroke="' + (t === 0 ? 'var(--line-strong)' : 'var(--grid)') + '"/>';
+      s += '<text x="' + (padL - 7) + '" y="' + (y(t) + 4).toFixed(1) + '" text-anchor="end" font-size="11" fill="var(--muted)" font-family="var(--f-mono)">' + fmt(t, sc.dec) + '</text>';
+    }
+    const bar = (x0, v, color) => {
+      const yt = y(v), yb = y(0), hgt = yb - yt;
+      if (hgt <= 0.2) return '';
+      const rr = Math.min(3, hgt, bw / 2);
+      return '<path d="M' + x0.toFixed(1) + ',' + yb.toFixed(1) + 'V' + (yt + rr).toFixed(1) + 'Q' + x0.toFixed(1) + ',' + yt.toFixed(1) + ' ' + (x0 + rr).toFixed(1) + ',' + yt.toFixed(1) + 'H' + (x0 + bw - rr).toFixed(1) + 'Q' + (x0 + bw).toFixed(1) + ',' + yt.toFixed(1) + ' ' + (x0 + bw).toFixed(1) + ',' + (yt + rr).toFixed(1) + 'V' + yb.toFixed(1) + 'Z" fill="var(' + color + ')"/>';
+    };
+    for (let j = 0; j < 12; j++) {
+      const cx = padL + gw * (j + 0.5);
+      s += bar(cx - bw - 1, C[j], '--s-load');
+      s += bar(cx + 1, I[j], '--s-imp');
+      s += '<text x="' + cx.toFixed(1) + '" y="' + (b1 + 17) + '" text-anchor="middle" font-size="11" fill="var(--muted)" font-family="var(--f-mono)">' + (gw < 32 ? 'EFMAMJJASOND'[j] : Core.MESES[j]) + '</text>';
+    }
+    s += '<rect id="monHover" x="0" y="' + y1 + '" width="0" height="' + h1 + '" fill="var(--hover-band)" pointer-events="none"/>';
+    for (let j = 0; j < 12; j++) s += '<rect class="mhit" data-m="' + j + '" x="' + (padL + gw * j).toFixed(1) + '" y="' + y1 + '" width="' + gw.toFixed(1) + '" height="' + h1 + '" fill="transparent"/>';
+    svg.setAttribute('viewBox', '0 0 ' + W + ' ' + H);
+    svg.setAttribute('width', W);
+    svg.setAttribute('height', H);
+    svg.innerHTML = s;
+    const band = svg.querySelector('#monHover');
+    const dec = useM ? 1 : 0;
+    svg.querySelectorAll('.mhit').forEach((el) => {
+      const show = (ev) => {
+        const j = +el.dataset.m, rect = svg.getBoundingClientRect();
+        band.setAttribute('x', (padL + gw * j).toFixed(1)); band.setAttribute('width', gw.toFixed(1));
+        const red = m.load[j] > 0 ? (1 - m.imp[j] / m.load[j]) : 0;
+        tip.innerHTML = '<div class="t-h">' + Core.MESES_L[j] + ' de ' + S.year + '</div>' +
+          '<div class="t-r">' + swatch('--s-load') + 'Consumo ' + fmt(C[j], dec) + ' ' + unit + '</div>' +
+          '<div class="t-r">' + swatch('--s-imp') + 'Importación ' + fmt(I[j], dec) + ' ' + unit + '</div>' +
+          '<div class="t-r"><i class="sw" style="background:transparent"></i>Compra ' + fmt(red * 100, 1) + ' % menor</div>';
+        placeTip(tip, box, ev.clientX - rect.left, ev.clientY - rect.top);
+      };
+      el.addEventListener('pointermove', show);
+      el.addEventListener('pointerdown', show);
+      el.addEventListener('pointerleave', () => { tip.hidden = true; band.setAttribute('width', '0'); });
+    });
+    // tabla
+    let t = '<thead><tr><th scope="col">Mes</th><th scope="col" class="n">Consumo (kWh)</th><th scope="col" class="n">Generación FV (kWh)</th><th scope="col" class="n">Exportación (kWh)</th><th scope="col" class="n">Importación (kWh)</th></tr></thead><tbody>';
+    for (let j = 0; j < 12; j++) t += '<tr><td>' + Core.MESES_L[j] + '</td><td class="n">' + fmt(m.load[j]) + '</td><td class="n">' + fmt(m.pv[j]) + '</td><td class="n">' + fmt(m.exp[j]) + '</td><td class="n">' + fmt(m.imp[j]) + '</td></tr>';
+    t += '</tbody>';
+    $('tblMon').innerHTML = t;
+  }
+
+  // ---------- comparar tamaños ----------
+  function runCompare() {
+    S.cmp = Core.compareSizes(S.load, params(), S.cal, S.ref);
+    S.cmpParams = { yieldDay: P.yieldDay, bat: P.batOn, strategy: P.strategy };
+    markStale(false);
+    renderCompare();
+  }
+  function markStale(v) { S.cmpStale = v; }
+  function renderCompare() {
+    const sec = $('cmpSec');
+    $('cmpStale').hidden = !(S.cmp && S.cmpStale);
+    sec.classList.toggle('stale', !!(S.cmp && S.cmpStale));
+    const batTxt = P.batOn ? 'con la batería de ' + fmt(P.batE, 1) + ' kWh / ' + fmt(P.batP, 1) + ' kW en modo ' + (P.strategy === 'peak' ? 'recorte de pico' : 'autoconsumo') : 'sin batería';
+    $('cmpNote').textContent = 'Tamaño de referencia = consumo anual / (' + S.cal.nDays + ' días × ' + trimDec(P.yieldDay, 2) + ' kWh/kWp/día) = ' + fmt(S.ref, 1) + ' kWp. Cada fila se simula ' + batTxt + '.';
+    if (!S.cmp) {
+      $('tblCmp').innerHTML = '<tbody><tr><td>Pulse «Comparar tamaños» para simular 25, 50, 75, 100 y 150 % del tamaño de referencia.</td></tr></tbody>';
+      return;
+    }
+    let t = '<thead><tr><th scope="col">Tamaño</th><th scope="col" class="n">kWp</th><th scope="col" class="n">Generación (kWh)</th><th scope="col" class="n">Autoconsumo</th><th scope="col" class="n">Autosuficiencia</th><th scope="col" class="n">Exportación (% de la generación)</th><th scope="col" class="n">Importación (kWh)</th></tr></thead><tbody>';
+    for (const f of S.cmp) {
+      t += '<tr><td>' + fmt(f.factor * 100) + ' %</td><td class="n">' + fmt(f.kwp, 1) + '</td><td class="n">' + fmt(f.gen) + '</td><td class="n">' + pct(f.autoconsumo) + '</td><td class="n">' + pct(f.autosuficiencia) + '</td><td class="n">' + pct(f.exportPct) + '</td><td class="n">' + fmt(f.imp) + '</td></tr>';
+    }
+    $('tblCmp').innerHTML = t + '</tbody>';
+  }
+
+  // ---------- copiar ----------
+  function tableText() {
+    const r = S.res, A = true, c = r.consumo;
+    const L = [];
+    const kv = (a, b) => L.push(a + '\t' + b);
+    L.push('Simulador solar y batería');
+    kv('Datos', S.ds.isExample ? 'Ejemplo sintético, no es un caso real' : S.ds.name);
+    kv('Año', S.year);
+    kv('Potencia FV (kWp)', fmt(P.kwp, 1, A));
+    kv('Rendimiento (kWh/kWp/día)', fmt(P.yieldDay, 2, A));
+    kv('Sol (h)', fmt(P.sunrise, 2, A) + ' a ' + fmt(P.sunset, 2, A));
+    if (P.batOn) {
+      kv('Batería', fmt(P.batE, 1, A) + ' kWh / ' + fmt(P.batP, 1, A) + ' kW, η ' + fmt(P.eta, 1, A) + ' %, SOC ' + fmt(P.socMin, 1, A) + ' a ' + fmt(P.socMax, 1, A) + ' %');
+      kv('Estrategia', P.strategy === 'peak' ? 'Recorte de pico, umbral ' + fmt(S.T, 1, A) + ' kW' + (P.gridCharge ? ', recarga de la red 22:00 a 5:00' : '') : 'Autoconsumo');
+    } else kv('Batería', 'No');
+    L.push('');
+    L.push('Concepto\tValor\tUnidad\t% del consumo');
+    const row = (a, v, u, d) => L.push(a + '\t' + fmt(v, d == null ? 1 : d, A) + '\t' + u + '\t' + (u === 'kWh' && c > 0 ? fmt(v / c * 100, 1, A) : ''));
+    row('Consumo de las cargas', r.consumo, 'kWh');
+    row('Generación FV', r.gen, 'kWh');
+    row('FV directa a las cargas', r.dir, 'kWh');
+    row('FV que entra a la batería', r.cpv, 'kWh');
+    row('Exportación a la red', r.exp, 'kWh');
+    row('FV usada en sitio', r.sitio, 'kWh');
+    row('Importación de la red', r.imp, 'kWh');
+    row('Importación para recargar la batería', r.cg, 'kWh');
+    row('Energía que entrega la batería', r.dis, 'kWh');
+    row('de origen solar', r.solBat, 'kWh');
+    row('Pérdidas de la batería', r.loss, 'kWh');
+    row('Energía solar que llega a las cargas', r.solCargas, 'kWh');
+    L.push('Autoconsumo\t' + fmt(r.autoconsumo * 100, 1, A) + '\t%\t');
+    L.push('Autosuficiencia\t' + fmt(r.autosuficiencia * 100, 1, A) + '\t%\t');
+    row('Demanda máxima de importación sin FV ni batería', r.picoAntes, 'kW');
+    row('Demanda máxima de importación con el sistema', r.picoDespues, 'kW');
+    row('Horas sobre el umbral de ' + fmt(S.T, 1, A) + ' kW sin FV ni batería', r.horasAntes, 'h', 0);
+    row('Horas sobre el umbral con el sistema', r.horasDespues, 'h', 0);
+    L.push('Balance: importación + generación - exportación\t' + fmt(r.balance.lhs, 1, A) + '\tkWh\t');
+    L.push('Balance: consumo + pérdidas + energía guardada\t' + fmt(r.balance.rhs, 1, A) + '\tkWh\t');
+    if (S.cmp) {
+      L.push('');
+      L.push('Comparación de tamaños' + (S.cmpStale ? ' (desactualizada)' : ''));
+      L.push('Tamaño (% de referencia)\tkWp\tGeneración (kWh)\tAutoconsumo (%)\tAutosuficiencia (%)\tExportación (% de la generación)\tImportación (kWh)');
+      for (const f of S.cmp) L.push([fmt(f.factor * 100, 0, A), fmt(f.kwp, 1, A), fmt(f.gen, 0, A), fmt(f.autoconsumo * 100, 1, A), fmt(f.autosuficiencia * 100, 1, A), f.exportPct == null ? '' : fmt(f.exportPct * 100, 1, A), fmt(f.imp, 0, A)].join('\t'));
+    }
+    return L.join('\n');
+  }
+  function copyTable() {
+    const text = tableText();
+    const buf = $('copyBuf'), msg = $('copyMsg');
+    buf.value = text;
+    const fallback = () => {
+      buf.hidden = false;
+      buf.focus(); buf.select();
+      let ok = false;
+      try { ok = document.execCommand && document.execCommand('copy'); } catch (e) { ok = false; }
+      msg.textContent = ok ? 'Tabla copiada.' : 'El navegador no permitió copiar: el texto quedó seleccionado abajo para que lo copie.';
+    };
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(() => { buf.hidden = true; msg.textContent = 'Tabla copiada. Péguela en una hoja de cálculo.'; }, fallback);
+      } else fallback();
+    } catch (e) { fallback(); }
+  }
+
+  // ---------- tabla de referencias ----------
+  function renderRef() {
+    const tb = $('tblRef').querySelector('tbody');
+    tb.innerHTML = REGIONES.map((r, i) => {
+      const dia = r.kwhAno / 365, est = Math.round(dia * 0.8 * 10) / 10;
+      return '<tr><td>' + r.reg + '</td><td>' + r.city + '</td><td>' + r.atlas + '</td><td class="n">' + fmt(r.kwhAno) + '</td><td class="n">' + fmt(dia, 1) + '</td><td class="n">' + fmt(est, 1) + '</td><td><button type="button" class="chipbtn" data-y="' + est + '" id="useRef' + i + '">Usar ' + fmt(est, 1) + '</button></td></tr>';
+    }).join('');
+    tb.querySelectorAll('button[data-y]').forEach((b) => b.addEventListener('click', () => {
+      $('yield').value = trimDec(+b.dataset.y, 2);
+      onInput();
+      $('yield').focus();
+    }));
+  }
+
+  // ---------- eventos ----------
+  function onInput() {
+    if (validateAll()) { savePrefs(); run(false); }
+  }
+  for (const f of FIELDS) {
+    const el = $(f.id);
+    el.addEventListener('input', onInput);
+    el.addEventListener('change', () => { if (validateAll()) el.value = trimDec(P[f.key], f.dec); });
+  }
+  $('batOn').addEventListener('change', (e) => { P.batOn = e.target.checked; if (validateAll()) { savePrefs(); run(false); } });
+  document.querySelectorAll('input[name="strategy"]').forEach((el) => el.addEventListener('change', (e) => { if (e.target.checked) { P.strategy = e.target.value; savePrefs(); if (validateAll()) run(false); } }));
+  $('gridCharge').addEventListener('change', (e) => { P.gridCharge = e.target.checked; savePrefs(); if (validateAll()) run(false); });
+  const thr = $('threshold');
+  thr.addEventListener('input', () => {
+    const v = Core.parseNum(thr.value);
+    const ok = isFinite(v) && v > 0;
+    thr.parentElement.classList.toggle('bad', !ok);
+    thr.setAttribute('aria-invalid', ok ? 'false' : 'true');
+    showErr('thr-err', ok ? '' : 'Escriba un umbral mayor que 0 kW.');
+    if (ok) { S.T = v; if (validateAll()) run(false); }
+  });
+  thr.addEventListener('change', () => { if (S.T > 0) thr.value = fmt(S.T, 1); });
+  $('thrReset').addEventListener('click', () => { S.T = 0.9 * S.st.peak; thr.value = fmt(S.T, 1); showErr('thr-err', ''); thr.parentElement.classList.remove('bad'); if (validateAll()) run(false); });
+  document.querySelectorAll('button[data-ref]').forEach((b) => b.addEventListener('click', () => {
+    const v = Math.round(S.ref * +b.dataset.ref * 10) / 10;
+    $('kwp').value = trimDec(v, 1);
+    onInput();
+  }));
+  $('year').addEventListener('change', (e) => setYear(+e.target.value));
+  $('btnCompare').addEventListener('click', runCompare);
+  $('btnCopy').addEventListener('click', copyTable);
+  $('btnExample').addEventListener('click', () => { setDataset(exampleDataset()); csvMsg('', false); });
+
+  const moveDay = (k) => { S.day = Math.min(S.cal.nDays - 1, Math.max(0, S.day + k)); renderDay(); };
+  $('dayPrev').addEventListener('click', () => moveDay(-1));
+  $('dayNext').addEventListener('click', () => moveDay(1));
+  $('dayMax').addEventListener('click', () => { S.day = S.st.dayPeak; renderDay(); });
+  $('day').addEventListener('change', (e) => { const d = Core.dayFromISO(S.cal, e.target.value); if (d >= 0) { S.day = d; renderDay(); } });
+
+  function csvMsg(t, ok) { const el = $('csvMsg'); el.textContent = t; el.hidden = !t; el.className = 'msg' + (ok ? ' ok' : ''); }
+  function readFile(file) {
+    if (!file) return;
+    if (file.size > 50 * 1024 * 1024) { csvMsg('El archivo pesa más de 50 MB; use uno de los CSV del paquete.', false); return; }
+    const fr = new FileReader();
+    fr.onerror = () => csvMsg('No se pudo leer el archivo.', false);
+    fr.onload = () => {
+      const r = Core.parseCsv(fr.result);
+      if (!r.ok) { csvMsg(r.error, false); return; }
+      setDataset({ name: file.name, isExample: false, years: r.years, complete: r.complete, bad: r.bad }, S.year);
+      csvMsg('Se leyeron ' + fmt(r.rows) + ' filas de ' + file.name + '.', true);
+    };
+    fr.readAsText(file);
+  }
+  $('csvFile').addEventListener('change', (e) => { readFile(e.target.files && e.target.files[0]); e.target.value = ''; });
+  const drop = $('drop');
+  ['dragenter', 'dragover'].forEach((t) => drop.addEventListener(t, (e) => { e.preventDefault(); drop.classList.add('over'); }));
+  ['dragleave', 'dragend'].forEach((t) => drop.addEventListener(t, () => drop.classList.remove('over')));
+  drop.addEventListener('drop', (e) => { e.preventDefault(); drop.classList.remove('over'); const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]; readFile(f); });
+  window.addEventListener('dragover', (e) => e.preventDefault());
+  window.addEventListener('drop', (e) => e.preventDefault());
+
+  let rz = 0, lastW = 0;
+  if (window.ResizeObserver) {
+    new ResizeObserver((ent) => {
+      const w = Math.round(ent[0].contentRect.width);
+      if (w === lastW) return;
+      lastW = w;
+      cancelAnimationFrame(rz);
+      rz = requestAnimationFrame(() => { if (S.res) { renderDay(); renderMonthly(); } });
+    }).observe($('dayChart'));
+  }
+
+  function exampleDataset() {
+    const load = Core.syntheticLoad(2019, 2019);
+    return { name: 'Ejemplo sintético', isExample: true, years: { 2019: load }, complete: [2019], bad: 0 };
+  }
+
+  // ---------- arranque ----------
+  fillInputs();
+  validateAll();
+  renderRef();
+  setDataset(exampleDataset());
+  runCompare();
+})();
+</script>

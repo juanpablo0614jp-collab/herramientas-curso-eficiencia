@@ -1,0 +1,1331 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Matriz de priorización de medidas</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@600&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap">
+<style>
+/* Layout: una columna de trabajo de 1200 px. Barra de sensibilidad fija arriba en pantallas anchas; entradas → resultados → rankings → carteras → gráficas → método. Paleta del curso: tinta, acento azul, alerta. */
+:root {
+  --bg: #F4F6F9;
+  --surface: #FFFFFF;
+  --surface-2: #EDF1F6;
+  --ink: #1C2D44;
+  --ink-2: #4A5A70;
+  --muted: #66768C;
+  --line: #D9E1EA;
+  --line-strong: #B5C2D1;
+  --grid: #E6EBF1;
+  --accent-mark: #1E8FC4;
+  --accent-text: #136A97;
+  --accent-soft: #E2F1F9;
+  --btn: #1C2D44;
+  --btn-hover: #2B4061;
+  --btn-ink: #FFFFFF;
+  --alert: #E4572E;
+  --alert-text: #B23C17;
+  --alert-soft: #FCEBE5;
+  --good: #1F7F55;
+  --good-soft: #E2F2E9;
+  --warn-text: #865600;
+  --warn-soft: #FBF0D8;
+  --neutral-mark: #A3B1C2;
+  --tip-bg: #1C2D44;
+  --tip-ink: #FFFFFF;
+  --focus: #1E8FC4;
+  --f-display: "IBM Plex Sans Condensed", "Arial Narrow", "IBM Plex Sans", system-ui, sans-serif;
+  --f-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  --r: 8px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0F1722; --surface: #162131; --surface-2: #1D2A3C; --ink: #E6EDF5; --ink-2: #A9B6C6; --muted: #8796AA;
+    --line: #2A3A4F; --line-strong: #3E5270; --grid: #213045;
+    --accent-mark: #4CB8EA; --accent-text: #74C9F1; --accent-soft: #15344A;
+    --btn: #E6EDF5; --btn-hover: #C9D6E4; --btn-ink: #0F1722;
+    --alert: #F07A5F; --alert-text: #F69C86; --alert-soft: #3A1F19;
+    --good: #5AC897; --good-soft: #143326; --warn-text: #E9BC66; --warn-soft: #33280F;
+    --neutral-mark: #52667F; --tip-bg: #E6EDF5; --tip-ink: #0F1722; --focus: #4CB8EA;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0F1722; --surface: #162131; --surface-2: #1D2A3C; --ink: #E6EDF5; --ink-2: #A9B6C6; --muted: #8796AA;
+  --line: #2A3A4F; --line-strong: #3E5270; --grid: #213045;
+  --accent-mark: #4CB8EA; --accent-text: #74C9F1; --accent-soft: #15344A;
+  --btn: #E6EDF5; --btn-hover: #C9D6E4; --btn-ink: #0F1722;
+  --alert: #F07A5F; --alert-text: #F69C86; --alert-soft: #3A1F19;
+  --good: #5AC897; --good-soft: #143326; --warn-text: #E9BC66; --warn-soft: #33280F;
+  --neutral-mark: #52667F; --tip-bg: #E6EDF5; --tip-ink: #0F1722; --focus: #4CB8EA;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font: 15px/1.5 var(--f-body); }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--surface); }
+.page { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.wrap { max-width: 1200px; margin-inline: auto; }
+.bleed {
+  margin-left: calc(-1 * max(16px, env(safe-area-inset-left, 0px)));
+  margin-right: calc(-1 * max(16px, env(safe-area-inset-right, 0px)));
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+h1, h2, h3, h4 { margin: 0; line-height: 1.2; text-wrap: balance; }
+h1 { font: 600 clamp(1.75rem, 3.4vw, 2.4rem)/1.1 var(--f-display); letter-spacing: -0.005em; }
+h2 { font: 600 1.4rem/1.2 var(--f-display); }
+h3 { font: 600 1rem/1.3 var(--f-body); }
+h4 { font: 600 .95rem/1.3 var(--f-body); }
+p { margin: 0; }
+a { color: var(--accent-text); text-underline-offset: 3px; }
+.num { font-family: var(--f-mono); font-variant-numeric: tabular-nums; }
+.small { font-size: .875rem; }
+.muted { color: var(--muted); }
+.ink2 { color: var(--ink-2); }
+.eyebrow { font: 500 .75rem/1.35 var(--f-mono); letter-spacing: .07em; text-transform: uppercase; color: var(--ink-2); }
+:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+/* encabezado */
+header.top { background: var(--surface); border-bottom: 1px solid var(--line); padding-block: 26px 20px; }
+.head { display: grid; gap: 10px; }
+.lead { color: var(--ink-2); max-width: 78ch; }
+.meta-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin-top: 2px; }
+
+/* chips */
+.chip { display: inline-flex; align-items: center; gap: 6px; padding: 2px 9px; border-radius: 999px; font: 500 .8rem/1.5 var(--f-body); background: var(--surface-2); color: var(--ink-2); white-space: nowrap; }
+.chip.alert { background: var(--alert-soft); color: var(--alert-text); }
+.chip.warn { background: var(--warn-soft); color: var(--warn-text); }
+.chip.info { background: var(--accent-soft); color: var(--accent-text); }
+.chip.good { background: var(--good-soft); color: var(--good); }
+.chip.num { font-family: var(--f-mono); font-size: .78rem; }
+.chip.chip-wrap { white-space: normal; }
+.big.neg { color: var(--alert-text); }
+[hidden] { display: none !important; }
+.tag { display: inline-block; padding: 0 6px; border-radius: 4px; font: 500 .74rem/1.6 var(--f-mono); background: var(--accent-soft); color: var(--accent-text); }
+
+/* barra de sensibilidad */
+.sensbar { background: var(--surface); border-bottom: 1px solid var(--line); padding-block: 10px; z-index: 6; }
+@media (min-width: 860px) { .sensbar { position: sticky; top: env(safe-area-inset-top, 0px); } }
+.sens-inner { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 28px; }
+.sens-ctl { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; }
+.sens-ctl > label { font-weight: 600; font-size: .9rem; }
+.sens-slider { width: 240px; max-width: 100%; display: grid; }
+.sens-slider input { width: 100%; margin: 0; accent-color: var(--accent-mark); height: 22px; }
+.sens-ticks { display: flex; justify-content: space-between; font: 400 .7rem/1 var(--f-mono); color: var(--muted); padding-inline: 2px; }
+#sens-out { font: 500 .9rem/1.3 var(--f-mono); font-variant-numeric: tabular-nums; min-width: 15ch; }
+#sens-out.is-moved { color: var(--accent-text); }
+.sens-sum { display: flex; flex-wrap: wrap; gap: 4px 20px; font-size: .86rem; color: var(--ink-2); }
+.sens-sum b { color: var(--ink); font-weight: 500; }
+.ss { display: inline-flex; flex-wrap: wrap; align-items: baseline; gap: 6px; }
+
+/* botones */
+.btn { font: 500 .9rem/1.1 var(--f-body); padding: 9px 14px; min-height: 38px; border-radius: 7px; border: 1px solid var(--line-strong); background: var(--surface); color: var(--ink); cursor: pointer; }
+.btn:hover { background: var(--surface-2); }
+.btn.primary { background: var(--btn); border-color: var(--btn); color: var(--btn-ink); }
+.btn.primary:hover { background: var(--btn-hover); border-color: var(--btn-hover); }
+.btn.sm { padding: 6px 10px; min-height: 32px; font-size: .85rem; }
+.linkbtn { font: inherit; font-size: .875rem; background: none; border: 0; padding: 4px 2px; color: var(--accent-text); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.btn-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+
+/* secciones */
+main.wrap { display: grid; gap: 18px; padding-block: 22px 40px; }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 18px 20px 20px; display: grid; gap: 14px; min-width: 0; }
+.panel-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px 16px; }
+.panel-head > div { display: grid; gap: 4px; min-width: 0; }
+.panel-head p { color: var(--ink-2); font-size: .9rem; max-width: 80ch; }
+.note { font-size: .875rem; color: var(--ink-2); max-width: 90ch; }
+
+/* campos */
+.fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 14px 16px; }
+.field { display: grid; gap: 4px; align-content: start; min-width: 0; }
+.field > label { font-size: .86rem; font-weight: 500; color: var(--ink); }
+.field small { font-size: .78rem; color: var(--muted); }
+.inp-unit { display: flex; align-items: stretch; border: 1px solid var(--line-strong); border-radius: 7px; background: var(--surface); overflow: hidden; }
+.inp-unit:focus-within { outline: 2px solid var(--focus); outline-offset: 1px; }
+.inp-unit input { flex: 1; min-width: 0; border: 0; background: transparent; color: var(--ink); font: 500 .95rem/1.2 var(--f-mono); font-variant-numeric: tabular-nums; padding: 8px 10px; text-align: right; }
+.inp-unit input:focus-visible { outline: none; }
+.inp-unit span { display: flex; align-items: center; padding: 0 10px; font: 400 .78rem/1 var(--f-mono); color: var(--ink-2); background: var(--surface-2); border-left: 1px solid var(--line); white-space: nowrap; }
+.inp-unit:has(input[aria-invalid="true"]) { border-color: var(--alert); background: var(--alert-soft); }
+
+/* tablas */
+.tbl-scroll { overflow-x: auto; border: 1px solid var(--line); border-radius: var(--r); }
+.tbl { border-collapse: collapse; width: 100%; font-size: .875rem; }
+.tbl th { font: 500 .78rem/1.25 var(--f-body); color: var(--ink-2); text-align: left; padding: 8px 6px; background: var(--surface-2); border-bottom: 1px solid var(--line); vertical-align: bottom; }
+.tbl th .u { display: block; font: 400 .7rem/1.3 var(--f-mono); color: var(--muted); }
+.tbl th.n, .tbl td.n { text-align: right; }
+.tbl td { padding: 5px 6px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+.tbl tbody tr:last-child td { border-bottom: 0; }
+.tbl td.n { font-family: var(--f-mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.tbl td.code, .tbl th.code { font: 600 .8rem/1 var(--f-mono); color: var(--ink-2); width: 34px; padding-left: 10px; }
+.tbl tr.is-neg td { background: var(--alert-soft); }
+.tbl tr.is-neg td.code { color: var(--alert-text); }
+.tbl tr.is-excl td { color: var(--muted); }
+.tbl td.neg { color: var(--alert-text); font-weight: 600; }
+.c-name { min-width: 230px; width: 27%; }
+.c-sede { min-width: 104px; }
+.c-num { min-width: 84px; }
+.c-vida { min-width: 66px; }
+.c-ok { min-width: 66px; }
+.c-pt { min-width: 56px; }
+.cell-in { width: 100%; font: 400 .875rem/1.2 var(--f-body); color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 7px 7px; min-height: 34px; }
+.cell-in.num { font-family: var(--f-mono); text-align: right; }
+.cell-in:hover { border-color: var(--line-strong); }
+.cell-in:focus-visible { outline-offset: 0; }
+.cell-in::placeholder { color: var(--muted); }
+.cell-in[aria-invalid="true"] { border-color: var(--alert); background: var(--alert-soft); }
+select.cell-in { padding-right: 2px; cursor: pointer; }
+.btn-quitar { font: 500 .8rem/1 var(--f-body); background: none; border: 1px solid transparent; color: var(--ink-2); padding: 7px 8px; border-radius: 6px; cursor: pointer; }
+.btn-quitar:hover { color: var(--alert-text); border-color: var(--line); }
+.nm-cell { display: grid; gap: 1px; min-width: 210px; }
+.nm-cell .nm { font-weight: 500; color: var(--ink); }
+.tbl tr.is-excl .nm-cell .nm { color: var(--muted); }
+.nm-cell .sd { font-size: .78rem; color: var(--muted); }
+.nm-cell .chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 2px; }
+.tags { display: flex; flex-wrap: wrap; gap: 3px; }
+.undo { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; font-size: .875rem; color: var(--ink-2); padding: 8px 12px; background: var(--surface-2); border-radius: 7px; }
+#copy-fallback { width: 100%; min-height: 120px; font: .78rem/1.4 var(--f-mono); color: var(--ink); background: var(--surface); border: 1px solid var(--line-strong); border-radius: 7px; padding: 8px; }
+#copy-msg:empty { display: none; }
+
+/* pesos */
+.pesos-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
+.aviso { font-size: .875rem; padding: 8px 12px; border-radius: 7px; background: var(--warn-soft); color: var(--warn-text); max-width: 90ch; }
+.aviso.alert { background: var(--alert-soft); color: var(--alert-text); }
+
+/* rankings */
+.rank-lead { font-size: .9rem; color: var(--ink-2); }
+.rank-lead b { color: var(--ink); font-weight: 600; }
+.ranks { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+@media (max-width: 1000px) { .ranks { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 560px) { .ranks { grid-template-columns: minmax(0, 1fr); } }
+.rank-col { border: 1px solid var(--line); border-radius: var(--r); padding: 12px 10px 10px; display: grid; gap: 8px; align-content: start; min-width: 0; }
+.rank-col header { display: grid; gap: 1px; padding-inline: 4px; }
+.rank-col header span { font: 400 .74rem/1.3 var(--f-mono); color: var(--muted); }
+.rank-col ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.rank-item { display: grid; grid-template-columns: 16px 26px minmax(0, 1fr) auto; gap: 6px 8px; align-items: baseline; padding: 6px 4px; border-radius: 6px; cursor: default; }
+.rank-item .pos { font: 400 .78rem/1 var(--f-mono); color: var(--muted); }
+.rank-item .cd { font: 600 .8rem/1 var(--f-mono); color: var(--ink-2); }
+.rank-item .nm { font-size: .84rem; line-height: 1.3; min-width: 0; overflow-wrap: anywhere; }
+.rank-item .nm small { display: block; color: var(--muted); font-size: .74rem; }
+.rank-item .val { font: 500 .84rem/1 var(--f-mono); font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+.rank-item .val.neg { color: var(--alert-text); }
+.rank-item.hl { background: var(--accent-soft); }
+.rank-item.hl .cd { color: var(--accent-text); }
+.rank-excl { font-size: .84rem; color: var(--muted); }
+
+/* carteras */
+.carts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+@media (max-width: 1000px) { .carts { grid-template-columns: minmax(0, 1fr); } }
+.cart { border: 1px solid var(--line); border-radius: var(--r); padding: 14px 14px 16px; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.cart.is-opt { border-color: var(--accent-mark); }
+.cart-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 10px; }
+.cart .rule { font-size: .84rem; color: var(--ink-2); }
+.members { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.cart-body { display: grid; gap: 12px; }
+.members li { display: grid; grid-template-columns: 28px minmax(0, 1fr) auto; gap: 6px; align-items: baseline; font-size: .86rem; }
+.members .cd { font: 600 .8rem/1 var(--f-mono); color: var(--accent-text); }
+.members .nm small { display: block; color: var(--muted); font-size: .76rem; }
+.members .val { font: 400 .8rem/1 var(--f-mono); color: var(--ink-2); white-space: nowrap; }
+.members .val.neg { color: var(--alert-text); }
+.vpn-row { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 6px 12px; padding-top: 10px; border-top: 1px solid var(--line); }
+.vpn-row .lab { display: block; font-size: .78rem; color: var(--ink-2); }
+.big { font: 500 1.65rem/1.1 var(--f-mono); }
+.big + .unit { font: 400 .8rem/1 var(--f-mono); color: var(--ink-2); margin-left: 4px; }
+.stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 14px; margin: 0; }
+.stats > div { display: grid; gap: 2px; align-content: start; min-width: 0; }
+.stats dt { font-size: .76rem; color: var(--ink-2); }
+.stats dd { margin: 0; font: 500 .95rem/1.2 var(--f-mono); font-variant-numeric: tabular-nums; }
+.stats dd small { font: 400 .74rem/1 var(--f-mono); color: var(--muted); }
+.meter { height: 6px; background: var(--surface-2); border-radius: 999px; overflow: hidden; margin-top: 4px; }
+.meter i { display: block; height: 100%; background: var(--accent-mark); border-radius: 999px; }
+.traza { list-style: none; margin: 0; padding: 0; display: grid; gap: 3px; font-size: .82rem; }
+.traza li { display: grid; grid-template-columns: 28px minmax(0, 1fr) auto; gap: 6px; align-items: baseline; }
+.traza .cd { font: 600 .78rem/1 var(--f-mono); color: var(--ink-2); }
+.traza .val { font-family: var(--f-mono); color: var(--ink-2); }
+.cart .inter { padding-top: 10px; border-top: 1px solid var(--line); margin-top: auto; }
+.cart .inter .inp-unit { max-width: 220px; }
+.fixed-note { font-size: .875rem; color: var(--ink); background: var(--surface-2); border-radius: 7px; padding: 10px 14px; max-width: 100%; }
+
+/* gráficas */
+.charts { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+@media (max-width: 900px) { .charts { grid-template-columns: minmax(0, 1fr); } }
+figure.chart { margin: 0; border: 1px solid var(--line); border-radius: var(--r); padding: 14px; display: grid; gap: 10px; align-content: start; min-width: 0; }
+figure.chart figcaption { display: grid; gap: 2px; }
+figure.chart figcaption p { font-size: .82rem; color: var(--ink-2); }
+.legend { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: .8rem; color: var(--ink-2); }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.sw { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+.sw.acc { background: var(--accent-mark); }
+.sw.neu { background: var(--neutral-mark); }
+.sw.neg { background: var(--alert); }
+.sw.line { height: 2px; width: 14px; border-radius: 0; background: var(--ink-2); }
+.chart-box { position: relative; min-height: 180px; overflow: hidden; }
+.chart-box svg { display: block; }
+.chart-box text { font-family: var(--f-mono); font-size: 12px; fill: var(--ink-2); paint-order: stroke; stroke: var(--surface); stroke-width: 4px; stroke-linejoin: round; }
+.chart-box text.t-ink { fill: var(--ink); }
+.chart-box .t-code { fill: var(--ink); font-weight: 600; }
+.chart-box .t-name { font-family: var(--f-body); font-size: 12.5px; fill: var(--ink-2); }
+.chart-box .g-line { stroke: var(--grid); stroke-width: 1; fill: none; }
+.chart-box .zero { stroke: var(--ink-2); stroke-width: 1; fill: none; }
+.chart-box .ref { stroke: var(--ink-2); stroke-width: 1; fill: none; opacity: .7; }
+.chart-box .m-acc { fill: var(--accent-mark); }
+.chart-box .m-neu { fill: var(--neutral-mark); }
+.chart-box .m-neg { fill: var(--alert); }
+.chart-box .m-exc { fill: var(--neutral-mark); opacity: .45; }
+.chart-box .ring { stroke: var(--surface); stroke-width: 2; }
+.chart-box .hit { fill: transparent; }
+.chart-box .mark { cursor: default; }
+.chart-box .mark:focus { outline: none; }
+.chart-box .mark:hover .shape, .chart-box .mark:focus .shape { opacity: .78; }
+.chart-box .mark:focus-visible .hit { stroke: var(--focus); stroke-width: 2; }
+.tip { position: absolute; z-index: 3; pointer-events: none; background: var(--tip-bg); color: var(--tip-ink); border-radius: 6px; padding: 7px 10px; font-size: .78rem; line-height: 1.4; max-width: 260px; display: grid; gap: 1px; }
+.tip strong { font: 600 .9rem/1.3 var(--f-mono); }
+
+/* método */
+details.metodo { padding: 0; gap: 0; }
+details.metodo > summary { cursor: pointer; padding: 16px 20px; font: 600 1.05rem/1.3 var(--f-body); list-style-position: inside; }
+details.metodo[open] > summary { border-bottom: 1px solid var(--line); }
+.metodo-body { padding: 16px 20px 20px; display: grid; gap: 12px; max-width: 92ch; }
+.metodo-body ul { margin: 0; padding-left: 1.2em; display: grid; gap: 6px; }
+.metodo-body li, .metodo-body p { font-size: .92rem; }
+.formula { font-family: var(--f-mono); font-size: .86rem; background: var(--surface-2); padding: 1px 5px; border-radius: 4px; overflow-wrap: anywhere; }
+
+footer.foot { padding-block: 0 32px; font-size: .82rem; color: var(--muted); }
+footer.foot p { max-width: 100ch; }
+
+@media (max-width: 560px) {
+  .panel { padding: 14px 14px 16px; }
+  .fields { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  .sens-slider { width: 100%; }
+  .sens-ctl { width: 100%; }
+  .sens-ctl > label { width: 100%; }
+  .big { font-size: 1.4rem; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .btn, .cell-in, .rank-item, .chip { transition: background-color .15s, border-color .15s; }
+}
+</style>
+
+<div class="page">
+  <header class="top bleed">
+    <div class="wrap head">
+      <p class="eyebrow">Caracterización de energía y eficiencia energética · UNAL · EM&amp;D · Marco teórico 05</p>
+      <h1>Matriz de priorización de medidas</h1>
+      <p class="lead">Compare medidas de eficiencia energética con VPN, TIR, retorno simple y un puntaje multicriterio, y arme la cartera que cabe en el presupuesto. Apoya la planificación e implementación de la gestión de la energía (PGEE).</p>
+      <div class="meta-row">
+        <span class="chip chip-wrap warn" id="chip-datos">Datos ilustrativos</span>
+        <a href="#metodo" id="lnk-metodo" class="small">Cómo calcula esta herramienta</a>
+      </div>
+    </div>
+  </header>
+
+  <div class="sensbar bleed" id="sensbar">
+    <div class="wrap sens-inner">
+      <div class="sens-ctl">
+        <label for="sens">Sensibilidad de tarifa</label>
+        <div class="sens-slider">
+          <input type="range" id="sens" min="-30" max="30" step="1" value="0" aria-describedby="sens-out">
+          <div class="sens-ticks" aria-hidden="true"><span>−30 %</span><span>0</span><span>+30 %</span></div>
+        </div>
+        <output id="sens-out" for="sens">0 % · 800 COP/kWh</output>
+        <button type="button" class="linkbtn" id="btn-sens0">Volver a 0 %</button>
+      </div>
+      <p class="sens-sum" id="sens-sum" aria-live="polite"></p>
+    </div>
+  </div>
+
+  <main class="wrap">
+    <section class="panel" id="sec-param" aria-labelledby="h-param">
+      <div class="panel-head"><div><h2 id="h-param">Parámetros globales</h2><p>Se aplican a todas las medidas. La vida útil de cada medida toma el horizonte si se deja vacía.</p></div></div>
+      <div class="fields">
+        <div class="field"><label for="p-tarifa">Tarifa de energía</label><div class="inp-unit"><input id="p-tarifa" inputmode="decimal" autocomplete="off" spellcheck="false"><span>COP/kWh</span></div><small>Por defecto 800</small></div>
+        <div class="field"><label for="p-tasa">Tasa de descuento</label><div class="inp-unit"><input id="p-tasa" inputmode="decimal" autocomplete="off" spellcheck="false"><span>% anual</span></div><small>Por defecto 12 %</small></div>
+        <div class="field"><label for="p-horizonte">Horizonte</label><div class="inp-unit"><input id="p-horizonte" inputmode="numeric" autocomplete="off" spellcheck="false"><span>años</span></div><small>Por defecto 5 años</small></div>
+        <div class="field"><label for="p-presupuesto">Presupuesto</label><div class="inp-unit"><input id="p-presupuesto" inputmode="decimal" autocomplete="off" spellcheck="false"><span>MCOP</span></div><small>Por defecto 150 millones COP</small></div>
+      </div>
+    </section>
+
+    <section class="panel" id="sec-medidas" aria-labelledby="h-medidas">
+      <div class="panel-head">
+        <div><h2 id="h-medidas">Medidas</h2><p id="medidas-nota">Edite cualquier celda. Use coma para decimales (122,377). Una medida que no cumple restricciones no recibe puntaje ni entra en las carteras.</p></div>
+      </div>
+      <div class="tbl-scroll">
+        <table class="tbl" id="tbl-medidas">
+          <thead>
+            <tr>
+              <th class="code" scope="col">#</th>
+              <th class="c-name" scope="col">Medida</th>
+              <th class="c-sede" scope="col">Sede o grupo</th>
+              <th class="c-num n" scope="col">Ahorro<span class="u">MWh/año</span></th>
+              <th class="c-num n" scope="col">Inversión<span class="u">MCOP</span></th>
+              <th class="c-num n" scope="col">Costos recurrentes<span class="u">MCOP/año</span></th>
+              <th class="c-vida n" scope="col">Vida útil<span class="u">años</span></th>
+              <th class="c-ok" scope="col" title="Seguridad, legalidad y calidad del servicio">Cumple restricciones<span class="u">sí/no</span></th>
+              <th class="c-pt" scope="col">Factibilidad<span class="u">1–5</span></th>
+              <th class="c-pt" scope="col">Confianza<span class="u">1–5</span></th>
+              <th class="c-pt" scope="col">Cobeneficios<span class="u">1–5</span></th>
+              <th scope="col"><span class="u">&nbsp;</span></th>
+            </tr>
+          </thead>
+          <tbody id="tb-medidas"></tbody>
+        </table>
+      </div>
+      <div class="btn-row">
+        <button type="button" class="btn primary" id="btn-add">Agregar medida</button>
+        <button type="button" class="btn" id="btn-restore">Restaurar ejemplo</button>
+        <span class="small muted">Restricciones no negociables: seguridad, legalidad y calidad del servicio.</span>
+      </div>
+      <p class="undo" id="undo-bar" hidden><span id="undo-msg"></span><button type="button" class="linkbtn" id="btn-undo">Deshacer</button></p>
+    </section>
+
+    <section class="panel" id="sec-pesos" aria-labelledby="h-pesos">
+      <div class="panel-head"><div><h2 id="h-pesos">Pesos del puntaje multicriterio</h2><p>Ponderación ilustrativa de la tabla 5 del marco teórico 05. Los pesos deben aprobarse antes de puntuar alternativas.</p></div></div>
+      <div class="fields">
+        <div class="field"><label for="w-ahorro">Ahorro energético</label><div class="inp-unit"><input id="w-ahorro" inputmode="decimal" autocomplete="off"><span>%</span></div><small>Ahorro ÷ mayor ahorro</small></div>
+        <div class="field"><label for="w-vpn">Valor económico</label><div class="inp-unit"><input id="w-vpn" inputmode="decimal" autocomplete="off"><span>%</span></div><small>VPN ÷ mayor VPN</small></div>
+        <div class="field"><label for="w-fact">Factibilidad</label><div class="inp-unit"><input id="w-fact" inputmode="decimal" autocomplete="off"><span>%</span></div><small>Puntaje 1–5 ÷ 5</small></div>
+        <div class="field"><label for="w-conf">Confianza en el resultado</label><div class="inp-unit"><input id="w-conf" inputmode="decimal" autocomplete="off"><span>%</span></div><small>Puntaje 1–5 ÷ 5</small></div>
+        <div class="field"><label for="w-cob">Cobeneficios</label><div class="inp-unit"><input id="w-cob" inputmode="decimal" autocomplete="off"><span>%</span></div><small>Puntaje 1–5 ÷ 5</small></div>
+      </div>
+      <div class="pesos-foot">
+        <span class="chip num" id="pesos-suma">Suma 100 %</span>
+        <button type="button" class="btn sm" id="btn-pesos">Restaurar 30 / 25 / 15 / 15 / 15</button>
+      </div>
+      <p class="aviso" id="pesos-aviso" hidden></p>
+    </section>
+
+    <section class="panel" id="sec-result" aria-labelledby="h-result">
+      <div class="panel-head">
+        <div><h2 id="h-result">Resultados por medida</h2><p id="result-nota">Con la tarifa efectiva de la barra de sensibilidad.</p></div>
+        <button type="button" class="btn" id="btn-copy">Copiar tabla</button>
+      </div>
+      <p class="small ink2" id="copy-msg" aria-live="polite"></p>
+      <textarea id="copy-fallback" hidden readonly aria-label="Tabla en texto para copiar"></textarea>
+      <div class="tbl-scroll">
+        <table class="tbl" id="tbl-result">
+          <thead>
+            <tr>
+              <th class="code" scope="col">#</th>
+              <th scope="col">Medida</th>
+              <th class="n" scope="col">Ahorro<span class="u">MWh/año</span></th>
+              <th class="n" scope="col">Inversión<span class="u">MCOP</span></th>
+              <th class="n" scope="col">Beneficio neto<span class="u">MCOP/año</span></th>
+              <th class="n" scope="col">Retorno simple<span class="u">años</span></th>
+              <th class="n" scope="col">VPN<span class="u">MCOP</span></th>
+              <th class="n" scope="col">TIR<span class="u">% anual</span></th>
+              <th class="n" scope="col">B/C<span class="u">VP ben. ÷ inv.</span></th>
+              <th class="n" scope="col">Puntaje<span class="u">0–100</span></th>
+              <th scope="col">En cartera<span class="u">VPN · Pts · TIR</span></th>
+            </tr>
+          </thead>
+          <tbody id="tb-result"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="panel" id="sec-rank" aria-labelledby="h-rank">
+      <div class="panel-head"><div><h2 id="h-rank">Rankings lado a lado</h2><p>Solo medidas que cumplen restricciones. Pase el cursor o el foco por una medida para ubicarla en las cuatro listas.</p></div></div>
+      <p class="rank-lead" id="rank-lead"></p>
+      <div class="ranks" id="ranks"></div>
+      <p class="rank-excl" id="rank-excl" hidden></p>
+    </section>
+
+    <section class="panel" id="sec-cartera" aria-labelledby="h-cartera">
+      <div class="panel-head"><div><h2 id="h-cartera">Cartera con presupuesto</h2><p id="cartera-nota">Tres maneras de elegir medidas con el mismo presupuesto.</p></div></div>
+      <div class="carts">
+        <article class="cart is-opt" id="cart-vpn">
+          <div class="cart-head"><h3>Mayor VPN total</h3><span class="chip info">Óptima</span></div>
+          <p class="rule">Prueba todas las combinaciones de medidas elegibles y elige la de mayor suma de VPN con inversión dentro del presupuesto.</p>
+          <div class="cart-body" id="cart-vpn-body"></div>
+          <div class="field inter"><label for="int-vpn">Interacción entre medidas</label><div class="inp-unit"><input id="int-vpn" inputmode="decimal" autocomplete="off" placeholder="0"><span>MWh/año</span></div><small>Ahorro que se pierde al combinarlas (opcional)</small></div>
+        </article>
+        <article class="cart" id="cart-pts">
+          <div class="cart-head"><h3>Mayor puntaje total</h3><span class="chip">Multicriterio</span></div>
+          <p class="rule">Prueba todas las combinaciones y elige la de mayor suma de puntajes con inversión dentro del presupuesto.</p>
+          <div class="cart-body" id="cart-pts-body"></div>
+          <div class="field inter"><label for="int-pts">Interacción entre medidas</label><div class="inp-unit"><input id="int-pts" inputmode="decimal" autocomplete="off" placeholder="0"><span>MWh/año</span></div><small>Ahorro que se pierde al combinarlas (opcional)</small></div>
+        </article>
+        <article class="cart" id="cart-tir">
+          <div class="cart-head"><h3>Por TIR, de mayor a menor</h3><span class="chip">Regla práctica</span></div>
+          <p class="rule">Recorre las medidas de mayor a menor TIR y agrega cada una que aún quepa en el presupuesto.</p>
+          <div class="cart-body" id="cart-tir-body"></div>
+          <div class="field inter"><label for="int-tir">Interacción entre medidas</label><div class="inp-unit"><input id="int-tir" inputmode="decimal" autocomplete="off" placeholder="0"><span>MWh/año</span></div><small>Ahorro que se pierde al combinarlas (opcional)</small></div>
+        </article>
+      </div>
+      <p class="fixed-note">Los VPN se suman solo si las medidas no interactúan; si una cambia las condiciones de otra (por ejemplo iluminación y climatización en la misma sede), el ahorro conjunto debe recalcularse.</p>
+    </section>
+
+    <section class="panel" id="sec-graf" aria-labelledby="h-graf">
+      <div class="panel-head"><div><h2 id="h-graf">Gráficas</h2><p>Mismos valores de la tabla de resultados, con la tarifa efectiva.</p></div></div>
+      <div class="charts">
+        <figure class="chart" id="fig-vpn">
+          <figcaption><h3>VPN por medida</h3><p>Millones de pesos (MCOP), de mayor a menor</p></figcaption>
+          <div class="legend" aria-hidden="true"><span><i class="sw acc"></i>En la cartera de mayor VPN</span><span><i class="sw neu"></i>Fuera de esa cartera</span><span><i class="sw neg"></i>VPN negativo</span></div>
+          <div class="chart-box" id="ch-vpn" role="group" aria-label="Barras horizontales del VPN de cada medida"></div>
+        </figure>
+        <figure class="chart" id="fig-disp">
+          <figcaption><h3>Inversión frente a VPN</h3><p>Cada punto es una medida; la línea vertical marca el presupuesto</p></figcaption>
+          <div class="legend" aria-hidden="true"><span><i class="sw acc"></i>En la cartera de mayor VPN</span><span><i class="sw neu"></i>Fuera de esa cartera</span><span><i class="sw neg"></i>VPN negativo</span><span><i class="sw line"></i>Presupuesto</span></div>
+          <div class="chart-box" id="ch-disp" role="group" aria-label="Dispersión de inversión frente a VPN por medida"></div>
+        </figure>
+      </div>
+    </section>
+
+    <details class="panel metodo" id="metodo">
+      <summary>Cómo calcula esta herramienta</summary>
+      <div class="metodo-body">
+        <p class="aviso">Los pesos son ilustrativos (tabla 5 del marco teórico 05). Deben aprobarse antes de puntuar alternativas y someterse a sensibilidad. Los resultados son pedagógicos: una evaluación real necesita vidas útiles, tratamiento tributario, tarifas, deterioro e incertidumbre propios del proyecto.</p>
+        <h4>Indicadores por medida</h4>
+        <ul>
+          <li><b>Beneficio neto anual</b> (MCOP/año) = <span class="formula">ahorro (MWh/año) × 1.000 × tarifa (COP/kWh) ÷ 1.000.000 − costos recurrentes</span>.</li>
+          <li><b>Retorno simple</b> (años) = <span class="formula">inversión ÷ beneficio neto anual</span>. Si el beneficio neto es cero o negativo la inversión no se recupera y se muestra «—». Sirve solo como filtro: no ve beneficios posteriores ni el valor del dinero en el tiempo.</li>
+          <li><b>VPN</b> = <span class="formula">−inversión + Σ beneficio neto ÷ (1 + r)^t</span>, con t = 1 … vida útil. Beneficio constante, sin valor residual ni reposiciones.</li>
+          <li><b>TIR</b>: la tasa que hace VPN = 0, hallada por bisección entre −99 % y la primera tasa con VPN negativo. Si no existe (beneficio neto ≤ 0 o inversión cero) se muestra «—».</li>
+          <li><b>Beneficio/costo</b> = <span class="formula">VP de los beneficios netos ÷ inversión</span>. Mayor que 1 equivale a VPN positivo.</li>
+        </ul>
+        <h4>Puntaje multicriterio</h4>
+        <p><span class="formula">S = 100 × (w_ahorro·z_ahorro + w_valor·z_valor + w_fact·z_fact + w_conf·z_conf + w_cob·z_cob)</span>. Ahorro y VPN se dividen por el máximo entre las medidas que cumplen restricciones; un VPN negativo cuenta como 0. Factibilidad, confianza y cobeneficios se dividen por 5. Si los pesos no suman 100 %, cada uno se divide por la suma.</p>
+        <p>Las medidas que no cumplen restricciones no reciben puntaje ni entran en ninguna cartera: las restricciones no se compensan con rentabilidad.</p>
+        <h4>Carteras</h4>
+        <ul>
+          <li><b>Mayor VPN</b> y <b>mayor puntaje</b>: se prueban las 2ⁿ combinaciones de medidas elegibles (hasta 15) y se elige la mejor cuya inversión no supera el presupuesto. Corresponde a <span class="formula">max Σ VPNᵢ·xᵢ sujeto a Σ Iᵢ·xᵢ ≤ B, xᵢ ∈ {0, 1}</span> del marco 05.</li>
+          <li><b>Por TIR</b>: ordena de mayor a menor TIR y agrega cada medida que todavía quepa. Omite las que tienen TIR menor que la tasa de descuento. Es una regla práctica frecuente y no garantiza el mayor VPN.</li>
+          <li><b>Interacción</b>: resta X MWh/año al ahorro de la cartera. El beneficio neto baja <span class="formula">X × tarifa ÷ 1.000</span> MCOP/año y el VPN baja ese valor multiplicado por el factor de valor presente del horizonte global, <span class="formula">Σ 1 ÷ (1 + r)^t</span>.</li>
+        </ul>
+        <h4>Sensibilidad</h4>
+        <p>Tarifa efectiva = <span class="formula">tarifa × (1 + s)</span>, con s entre −30 % y +30 %. Indicadores, puntajes, carteras y gráficas usan la tarifa efectiva.</p>
+        <h4>Compruebe con el ejemplo integrado del marco 05</h4>
+        <p>Quite la medida de la sede B, fije el presupuesto en 340 MCOP y escriba 20 MWh/año de interacción en la cartera de mayor VPN. Debe obtener ahorro de 250 MWh/año, beneficio neto de 189 MCOP/año, retorno de 1,80 años y VPN de 341,3 MCOP.</p>
+      </div>
+    </details>
+  </main>
+
+  <footer class="wrap foot">
+    <p>Herramienta de apoyo al marco teórico 05 del curso Caracterización de energía y eficiencia energética (UNAL, grupo EM&amp;D). Las medidas de la sede A son la tabla 13 del marco 05 y la de la sede B es el ejemplo del módulo 2; ambas son datos ilustrativos. Sus cambios se guardan solo en este navegador.</p>
+  </footer>
+</div>
+
+<script>
+/*CORE-START*/
+// Código visible: las medidas del ejemplo conservan sus códigos del marco 05 (A1, A2, A3, B1); las nuevas se numeran M1, M2…
+function codigoDe(m, i) { return /^[ab]\d$/.test(m.id) ? m.id.toUpperCase() : 'M' + (i + 1); }
+const Core = (() => {
+  const CLAVES_PESO = ['ahorro', 'vpn', 'fact', 'conf', 'cob'];
+  const PESOS_DEF = { ahorro: 30, vpn: 25, fact: 15, conf: 15, cob: 15 };
+  const PARAM_DEF = { tarifa: 800, tasa: 12, horizonte: 5, presupuesto: 150 };
+  const MAX_ENUM = 15;
+  const EJEMPLO = [
+    { id: 'a1', nombre: 'Ajustes de horarios y controles', sede: 'Sede A', ahorro: 80, inversion: 20, costos: 4, vida: null, cumple: true, fact: 5, conf: 3, cob: 2 },
+    { id: 'a2', nombre: 'Sustitución y control de iluminación', sede: 'Sede A', ahorro: 100, inversion: 100, costos: 2, vida: null, cumple: true, fact: 4, conf: 5, cob: 4 },
+    { id: 'a3', nombre: 'Optimización de climatización', sede: 'Sede A', ahorro: 90, inversion: 220, costos: 5, vida: null, cumple: true, fact: 2, conf: 3, cob: 4 },
+    { id: 'b1', nombre: 'LED y variadores en manejadoras de aire', sede: 'Sede B', ahorro: 122.377, inversion: 130, costos: 0, vida: null, cumple: true, fact: 3, conf: 4, cob: 3 },
+  ];
+
+  function estadoEjemplo() {
+    return { v: 1, ejemplo: true, params: { ...PARAM_DEF }, pesos: { ...PESOS_DEF }, sens: 0,
+      inter: { vpn: 0, pts: 0, tir: 0 }, medidas: EJEMPLO.map(m => ({ ...m })), sig: 1 };
+  }
+
+  const esNum = x => typeof x === 'number' && isFinite(x);
+
+  // Valida un estado guardado; devuelve un estado completo o null.
+  function sanear(o) {
+    if (!o || typeof o !== 'object' || !Array.isArray(o.medidas)) return null;
+    const s = estadoEjemplo();
+    s.ejemplo = !!o.ejemplo;
+    for (const k in PARAM_DEF) if (o.params && esNum(o.params[k])) s.params[k] = o.params[k];
+    for (const k of CLAVES_PESO) if (o.pesos && esNum(o.pesos[k]) && o.pesos[k] >= 0) s.pesos[k] = o.pesos[k];
+    if (esNum(o.sens)) s.sens = Math.max(-30, Math.min(30, Math.round(o.sens)));
+    for (const k of ['vpn', 'pts', 'tir']) if (o.inter && esNum(o.inter[k])) s.inter[k] = o.inter[k];
+    const ids = new Set();
+    s.medidas = o.medidas.filter(m => m && typeof m.id === 'string' && !ids.has(m.id) && ids.add(m.id)).map(m => ({
+      id: m.id,
+      nombre: typeof m.nombre === 'string' ? m.nombre : '',
+      sede: typeof m.sede === 'string' ? m.sede : '',
+      ahorro: esNum(m.ahorro) ? m.ahorro : 0,
+      inversion: esNum(m.inversion) ? m.inversion : 0,
+      costos: esNum(m.costos) ? m.costos : 0,
+      vida: esNum(m.vida) && m.vida >= 1 ? Math.round(m.vida) : null,
+      cumple: m.cumple !== false,
+      fact: esNum(m.fact) ? Math.max(1, Math.min(5, Math.round(m.fact))) : 3,
+      conf: esNum(m.conf) ? Math.max(1, Math.min(5, Math.round(m.conf))) : 3,
+      cob: esNum(m.cob) ? Math.max(1, Math.min(5, Math.round(m.cob))) : 3,
+    }));
+    s.sig = esNum(o.sig) ? o.sig : s.medidas.length + 1;
+    return s;
+  }
+
+  // Lee números en formato colombiano: 1.234,5 · 122,377 · 1.000 · también 1.5
+  function parseNum(str) {
+    if (typeof str === 'number') return str;
+    let s = String(str == null ? '' : str).trim().replace(/[\s  ]/g, '').replace(/−/g, '-').replace(/%$/, '');
+    if (s === '') return NaN;
+    if (s.includes(',')) s = s.replace(/\./g, '').replace(',', '.');
+    else if (/^-?[1-9]\d{0,2}(\.\d{3})+$/.test(s)) s = s.replace(/\./g, '');
+    if (!/^-?(\d+\.?\d*|\.\d+)$/.test(s)) return NaN;
+    return Number(s);
+  }
+
+  // Formato es-CO: miles con punto, decimales con coma. plain: sin miles y con guion ASCII (para hojas de cálculo).
+  function fmt(x, d = 1, o = {}) {
+    if (x == null || !isFinite(x)) return '—';
+    let s = Math.abs(x).toFixed(d);
+    const neg = x < 0 && Number(s) !== 0;
+    let [i, f] = s.split('.');
+    if (!o.plain) i = i.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    const sg = neg ? (o.plain ? '-' : '−') : (o.sign && Number(s) !== 0 ? '+' : '');
+    return sg + i + (f ? ',' + f : '');
+  }
+  // Para campos editables: hasta 3 decimales sin ceros sobrantes.
+  function fmtCampo(x) {
+    if (x == null || !isFinite(x)) return '';
+    const s = fmt(x, 3, { plain: false });
+    return s.includes(',') ? s.replace(/0+$/, '').replace(/,$/, '') : s;
+  }
+
+  // Factor de valor presente Σ 1/(1+r)^t, t = 1…n (suma directa: estable también cerca de r = 0).
+  function anualidad(r, n) {
+    let s = 0, d = 1;
+    for (let t = 1; t <= n; t++) { d /= (1 + r); s += d; }
+    return s;
+  }
+
+  function tir(inv, ben, n) {
+    if (!(n >= 1) || !(ben > 0)) return { valor: null, inf: false };
+    if (!(inv > 0)) return { valor: null, inf: true };
+    const f = r => -inv + ben * anualidad(r, n);
+    let lo = -0.99, hi = 1;
+    if (f(lo) < 0) return { valor: null, inf: false };
+    while (f(hi) > 0) { hi *= 2; if (hi > 1e6) return { valor: null, inf: false }; }
+    for (let k = 0; k < 300 && hi - lo > 1e-12; k++) {
+      const mid = (lo + hi) / 2;
+      if (f(mid) > 0) lo = mid; else hi = mid;
+    }
+    return { valor: (lo + hi) / 2, inf: false };
+  }
+
+  function metricas(m, p, tarifaEf) {
+    const vida = m.vida != null ? m.vida : p.horizonte;
+    const r = p.tasa / 100;
+    const ben = m.ahorro * tarifaEf / 1000 - m.costos;      // MCOP/año
+    const vpBen = ben * anualidad(r, vida);
+    const vpn = -m.inversion + vpBen;
+    const retorno = ben > 0 ? m.inversion / ben : null;
+    const t = tir(m.inversion, ben, vida);
+    const bc = m.inversion > 0 ? vpBen / m.inversion : null;
+    return { vida, ben, vpBen, vpn, retorno, tir: t.valor, tirInf: t.inf, bc };
+  }
+
+  function puntajes(filas, pesos) {
+    const suma = CLAVES_PESO.reduce((s, k) => s + (pesos[k] || 0), 0);
+    const eleg = filas.filter(f => f.cumple);
+    const maxA = Math.max(0, ...eleg.map(f => f.ahorro));
+    const maxV = Math.max(0, ...eleg.map(f => f.vpn));
+    const valores = {};
+    for (const f of filas) {
+      if (!f.cumple || !(suma > 0)) { valores[f.id] = null; continue; }
+      const z = {
+        ahorro: maxA > 0 ? Math.max(0, f.ahorro) / maxA : 0,
+        vpn: maxV > 0 ? Math.max(0, f.vpn) / maxV : 0,
+        fact: f.fact / 5, conf: f.conf / 5, cob: f.cob / 5,
+      };
+      valores[f.id] = { total: 100 * CLAVES_PESO.reduce((s, k) => s + (pesos[k] || 0) / suma * z[k], 0), z };
+    }
+    return { suma, normaliza: Math.abs(suma - 100) > 1e-9, valores };
+  }
+
+  function resumen(sel) {
+    const s = { ids: sel.map(f => f.id), n: sel.length, inversion: 0, ahorro: 0, ben: 0, vpn: 0, puntaje: 0 };
+    for (const f of sel) { s.inversion += f.inversion; s.ahorro += f.ahorro; s.ben += f.ben; s.vpn += f.vpn; s.puntaje += f.puntaje || 0; }
+    return s;
+  }
+
+  // Enumeración completa (fuerza bruta) de las combinaciones de medidas elegibles.
+  function carterasOptimas(filas, presupuesto) {
+    const eleg = filas.filter(f => f.cumple);
+    const n = eleg.length;
+    if (n > MAX_ENUM) return { demasiadas: true, n };
+    let bv = null, bp = null;
+    const total = 1 << n;
+    for (let mask = 0; mask < total; mask++) {
+      let inv = 0, v = 0, p = 0;
+      for (let i = 0; i < n; i++) if (mask & (1 << i)) { inv += eleg[i].inversion; v += eleg[i].vpn; p += eleg[i].puntaje || 0; }
+      if (inv > presupuesto + 1e-9) continue;
+      if (!bv || v > bv.v + 1e-9 || (Math.abs(v - bv.v) <= 1e-9 && inv < bv.inv - 1e-9)) bv = { mask, v, inv };
+      if (!bp || p > bp.p + 1e-9 || (Math.abs(p - bp.p) <= 1e-9 && v > bp.v + 1e-9)) bp = { mask, p, v };
+    }
+    const sel = mask => eleg.filter((_, i) => mask & (1 << i));
+    return { demasiadas: false, n, vpn: bv ? sel(bv.mask) : [], pts: bp ? sel(bp.mask) : [] };
+  }
+
+  // Regla práctica: de mayor a menor TIR, agrega cada medida que aún quepa; omite TIR < tasa.
+  function porTir(filas, presupuesto, r) {
+    const eleg = filas.filter(f => f.cumple);
+    const clave = f => f.tirInf ? Infinity : f.tir;
+    const cand = eleg.filter(f => f.tirInf || (f.tir != null && f.tir >= r));
+    const resto = eleg.filter(f => !cand.includes(f));
+    cand.sort((a, b) => { const ka = clave(a), kb = clave(b); return ka === kb ? 0 : kb > ka ? 1 : -1; });
+    const sel = [], traza = [];
+    let usado = 0;
+    for (const f of cand) {
+      const queda = presupuesto - usado;
+      if (f.inversion <= queda + 1e-9) { sel.push(f); usado += f.inversion; traza.push({ id: f.id, estado: 'entra', queda }); }
+      else traza.push({ id: f.id, estado: 'no cabe', queda });
+    }
+    for (const f of resto) traza.push({ id: f.id, estado: f.tir == null ? 'sin TIR' : 'TIR < tasa' });
+    return { sel, traza };
+  }
+
+  function ajustar(res, mwh, tarifaEf, r, horizonte) {
+    const d = mwh * tarifaEf / 1000;
+    return { ahorro: res.ahorro - mwh, ben: res.ben - d, vpn: res.vpn - d * anualidad(r, horizonte) };
+  }
+
+  function ordenar(lista, clave, asc) {
+    return lista.map((f, i) => ({ f, i, k: clave(f) })).sort((a, b) => {
+      const na = a.k == null, nb = b.k == null;
+      if (na !== nb) return na ? 1 : -1;
+      if (!na && a.k !== b.k) return asc ? a.k - b.k : b.k - a.k;
+      return a.i - b.i;
+    }).map(x => x.f);
+  }
+
+  function calcular(st) {
+    const p = st.params;
+    const r = p.tasa / 100;
+    const tarifaEf = p.tarifa * (1 + st.sens / 100);
+    const filas = st.medidas.map((m, i) => ({ ...m, code: codigoDe(m, i), ...metricas(m, p, tarifaEf) }));
+    const pz = puntajes(filas, st.pesos);
+    for (const f of filas) { const v = pz.valores[f.id]; f.puntaje = v ? v.total : null; f.z = v ? v.z : null; f.negativo = f.vpn < 0; }
+    const eleg = filas.filter(f => f.cumple);
+    const rankings = {
+      vpn: ordenar(eleg, f => f.vpn, false).map(f => f.id),
+      tir: ordenar(eleg, f => f.tirInf ? Infinity : f.tir, false).map(f => f.id),
+      ret: ordenar(eleg, f => f.retorno, true).map(f => f.id),
+      pts: ordenar(eleg, f => f.puntaje, false).map(f => f.id),
+    };
+    const opt = carterasOptimas(filas, p.presupuesto);
+    const gt = porTir(filas, p.presupuesto, r);
+    const armar = (sel, clave) => {
+      const res = resumen(sel);
+      const mwh = st.inter[clave] || 0;
+      res.interaccion = mwh;
+      res.aislado = { ahorro: res.ahorro, ben: res.ben, vpn: res.vpn };
+      res.final = mwh ? ajustar(res, mwh, tarifaEf, r, p.horizonte) : { ...res.aislado };
+      res.retorno = res.final.ben > 0 ? res.inversion / res.final.ben : null;
+      res.conNeg = sel.filter(f => f.vpn < 0).map(f => f.id);
+      return res;
+    };
+    const carteras = {
+      vpn: opt.demasiadas ? null : armar(opt.vpn, 'vpn'),
+      pts: opt.demasiadas || !(pz.suma > 0) ? null : armar(opt.pts, 'pts'),
+      tir: armar(gt.sel, 'tir'),
+    };
+    carteras.tir.traza = gt.traza;
+    for (const k of ['vpn', 'pts', 'tir']) {
+      const c = carteras[k];
+      if (c) c.dif = carteras.vpn ? c.final.vpn - carteras.vpn.final.vpn : null;
+    }
+    return {
+      params: { ...p }, r, tarifaEf, sens: st.sens, filas, pesos: pz, rankings, carteras,
+      demasiadas: opt.demasiadas, nElegibles: eleg.length,
+      negativos: filas.filter(f => f.vpn < 0).map(f => f.id),
+      excluidas: filas.filter(f => !f.cumple).map(f => f.id),
+    };
+  }
+
+  function tablaTSV(res) {
+    const P = (x, d) => (x == null || !isFinite(x)) ? '' : fmt(x, d, { plain: true });
+    const en = (k, id) => res.carteras[k] && res.carteras[k].ids.includes(id) ? 'Sí' : 'No';
+    const head = ['#', 'Medida', 'Sede o grupo', 'Cumple restricciones', 'Ahorro (MWh/año)', 'Inversión (MCOP)',
+      'Costos recurrentes (MCOP/año)', 'Vida útil (años)', 'Factibilidad (1-5)', 'Confianza (1-5)', 'Cobeneficios (1-5)',
+      'Beneficio neto (MCOP/año)', 'Retorno simple (años)', 'VPN (MCOP)', 'TIR (%)', 'B/C', 'Puntaje (0-100)',
+      'Cartera mayor VPN', 'Cartera mayor puntaje', 'Cartera por TIR'];
+    const limpiar = s => String(s).replace(/[\t\r\n]+/g, ' ');
+    const filas = res.filas.map(f => [f.code, limpiar(f.nombre), limpiar(f.sede), f.cumple ? 'Sí' : 'No', P(f.ahorro, 3), P(f.inversion, 2),
+      P(f.costos, 2), String(f.vida), f.fact, f.conf, f.cob, P(f.ben, 2), P(f.retorno, 2), P(f.vpn, 2),
+      f.tir != null ? P(100 * f.tir, 2) : '', P(f.bc, 3), f.puntaje != null ? P(f.puntaje, 2) : 'Excluida',
+      en('vpn', f.id), en('pts', f.id), en('tir', f.id)].join('\t'));
+    const pie = `Tarifa efectiva ${P(res.tarifaEf, 0)} COP/kWh (sensibilidad ${fmt(res.sens, 0, { sign: true, plain: true })} %); tasa ${P(res.params.tasa, 2)} %; horizonte ${res.params.horizonte} años; presupuesto ${P(res.params.presupuesto, 2)} MCOP`;
+    return [head.join('\t'), ...filas, '', pie].join('\n');
+  }
+
+  function niceTicks(min, max, n) {
+    if (!(max > min)) { max = min + 1; }
+    const raw = (max - min) / Math.max(1, n);
+    const mag = Math.pow(10, Math.floor(Math.log10(raw)));
+    const f = raw / mag;
+    const step = (f <= 1 ? 1 : f <= 2 ? 2 : f <= 2.5 ? 2.5 : f <= 5 ? 5 : 10) * mag;
+    const lo = Math.floor(min / step + 1e-9) * step, hi = Math.ceil(max / step - 1e-9) * step;
+    const ticks = [];
+    for (let v = lo; v <= hi + step * 1e-6; v += step) ticks.push(Math.round(v / step) * step);
+    return { lo, hi, step, ticks };
+  }
+
+  return { CLAVES_PESO, PESOS_DEF, PARAM_DEF, EJEMPLO, MAX_ENUM, estadoEjemplo, sanear, parseNum, fmt, fmtCampo,
+    anualidad, tir, metricas, puntajes, resumen, carterasOptimas, porTir, ajustar, calcular, tablaTSV, niceTicks };
+})();
+/*CORE-END*/
+
+(() => {
+  const KEY = 'priorizacion-v1';
+  const $ = id => document.getElementById(id);
+  const F = Core.fmt;
+  const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const NBSP = ' ';
+
+  let st = cargar();
+  let res = null;
+  let snapshot = null;
+
+  function cargar() {
+    try {
+      const raw = localStorage.getItem(KEY);
+      if (raw) { const s = Core.sanear(JSON.parse(raw)); if (s) return s; }
+    } catch (e) { /* sin almacenamiento: se usa el ejemplo */ }
+    return Core.estadoEjemplo();
+  }
+  let tGuardar = 0;
+  function guardar() {
+    clearTimeout(tGuardar);
+    tGuardar = setTimeout(() => { try { localStorage.setItem(KEY, JSON.stringify(st)); } catch (e) { /* ignorar */ } }, 250);
+  }
+
+  /* ---------- especificaciones de campos ---------- */
+  const PARAMS = {
+    tarifa: { id: 'p-tarifa', ok: v => v > 0 },
+    tasa: { id: 'p-tasa', ok: v => v >= 0 && v <= 100 },
+    horizonte: { id: 'p-horizonte', ok: v => v >= 1 && v <= 50, int: true },
+    presupuesto: { id: 'p-presupuesto', ok: v => v >= 0 },
+  };
+  const NUMS = {
+    ahorro: { ok: v => v >= 0 },
+    inversion: { ok: v => v >= 0 },
+    costos: { ok: () => true },
+    vida: { ok: v => v >= 1 && v <= 50, int: true, vacio: true },
+  };
+  const nombreDe = f => (f.nombre && f.nombre.trim()) || 'Medida sin nombre';
+  const filaDe = id => res.filas.find(f => f.id === id);
+
+  /* ---------- tabla editable ---------- */
+  function opciones(sel) {
+    return [1, 2, 3, 4, 5].map(v => `<option value="${v}"${v === sel ? ' selected' : ''}>${v}</option>`).join('');
+  }
+  function pintarTablaMedidas() {
+    const tb = $('tb-medidas');
+    tb.innerHTML = st.medidas.map((m, i) => {
+      const p = `m-${m.id}`, c = codigoDe(m, i);
+      return `<tr data-id="${esc(m.id)}">
+        <td class="code">${c}</td>
+        <td><input class="cell-in" id="${p}-nombre" data-campo="nombre" value="${esc(m.nombre)}" aria-label="Nombre de ${c}" autocomplete="off"></td>
+        <td><input class="cell-in" id="${p}-sede" data-campo="sede" value="${esc(m.sede)}" aria-label="Sede o grupo de ${c}" autocomplete="off"></td>
+        <td><input class="cell-in num" id="${p}-ahorro" data-campo="ahorro" value="${Core.fmtCampo(m.ahorro)}" inputmode="decimal" aria-label="Ahorro de ${c} en MWh por año" autocomplete="off"></td>
+        <td><input class="cell-in num" id="${p}-inversion" data-campo="inversion" value="${Core.fmtCampo(m.inversion)}" inputmode="decimal" aria-label="Inversión de ${c} en millones de pesos" autocomplete="off"></td>
+        <td><input class="cell-in num" id="${p}-costos" data-campo="costos" value="${Core.fmtCampo(m.costos)}" inputmode="decimal" aria-label="Costos recurrentes adicionales de ${c} en millones de pesos por año" autocomplete="off"></td>
+        <td><input class="cell-in num" id="${p}-vida" data-campo="vida" value="${m.vida == null ? '' : m.vida}" placeholder="${st.params.horizonte}" inputmode="numeric" aria-label="Vida útil de ${c} en años; vacío usa el horizonte" autocomplete="off"></td>
+        <td><select class="cell-in" id="${p}-cumple" data-campo="cumple" aria-label="${c} cumple restricciones no negociables"><option value="si"${m.cumple ? ' selected' : ''}>Sí</option><option value="no"${m.cumple ? '' : ' selected'}>No</option></select></td>
+        <td><select class="cell-in" id="${p}-fact" data-campo="fact" aria-label="Factibilidad de ${c}, 1 a 5">${opciones(m.fact)}</select></td>
+        <td><select class="cell-in" id="${p}-conf" data-campo="conf" aria-label="Confianza en el resultado de ${c}, 1 a 5">${opciones(m.conf)}</select></td>
+        <td><select class="cell-in" id="${p}-cob" data-campo="cob" aria-label="Cobeneficios de ${c}, 1 a 5">${opciones(m.cob)}</select></td>
+        <td><button type="button" class="btn-quitar" id="${p}-quitar" data-quitar="${esc(m.id)}" aria-label="Quitar ${c}">Quitar</button></td>
+      </tr>`;
+    }).join('');
+  }
+
+  function alEditarMedida(e) {
+    const el = e.target;
+    const campo = el.dataset && el.dataset.campo;
+    if (!campo) return;
+    const m = st.medidas.find(x => x.id === el.closest('tr').dataset.id);
+    if (!m) return;
+    if (campo === 'nombre' || campo === 'sede') m[campo] = el.value;
+    else if (campo === 'cumple') m.cumple = el.value === 'si';
+    else if (campo === 'fact' || campo === 'conf' || campo === 'cob') m[campo] = Number(el.value);
+    else if (NUMS[campo]) {
+      const spec = NUMS[campo];
+      if (spec.vacio && el.value.trim() === '') { m[campo] = null; el.removeAttribute('aria-invalid'); }
+      else {
+        let v = Core.parseNum(el.value);
+        if (spec.int && isFinite(v)) v = Math.round(v);
+        if (isFinite(v) && spec.ok(v)) { m[campo] = v; el.removeAttribute('aria-invalid'); }
+        else { el.setAttribute('aria-invalid', 'true'); return; }
+      }
+    }
+    st.ejemplo = false;
+    recalcular();
+  }
+  function alSalirMedida(e) {
+    const el = e.target;
+    const campo = el.dataset && el.dataset.campo;
+    if (!campo || !NUMS[campo]) return;
+    const m = st.medidas.find(x => x.id === el.closest('tr').dataset.id);
+    if (!m) return;
+    el.value = campo === 'vida' ? (m.vida == null ? '' : String(m.vida)) : Core.fmtCampo(m[campo]);
+    el.removeAttribute('aria-invalid');
+  }
+
+  /* ---------- parámetros, pesos, interacción ---------- */
+  function pintarCampos() {
+    for (const k in PARAMS) $(PARAMS[k].id).value = Core.fmtCampo(st.params[k]);
+    for (const k of Core.CLAVES_PESO) $('w-' + k).value = Core.fmtCampo(st.pesos[k]);
+    for (const k of ['vpn', 'pts', 'tir']) $('int-' + k).value = st.inter[k] ? Core.fmtCampo(st.inter[k]) : '';
+    $('sens').value = String(st.sens);
+  }
+  function enlazarNumero(el, leer, escribir, ok, int, vacioCero) {
+    el.addEventListener('input', () => {
+      if (vacioCero && el.value.trim() === '') { escribir(0); el.removeAttribute('aria-invalid'); recalcular(); return; }
+      let v = Core.parseNum(el.value);
+      if (int && isFinite(v)) v = Math.round(v);
+      if (isFinite(v) && ok(v)) { escribir(v); el.removeAttribute('aria-invalid'); recalcular(); }
+      else el.setAttribute('aria-invalid', 'true');
+    });
+    el.addEventListener('blur', () => {
+      const v = leer();
+      el.value = vacioCero && !v ? '' : Core.fmtCampo(v);
+      el.removeAttribute('aria-invalid');
+    });
+  }
+
+  /* ---------- resultados ---------- */
+  function pintarFilasEntrada() {
+    for (const tr of $('tb-medidas').rows) {
+      const f = filaDe(tr.dataset.id);
+      if (!f) continue;
+      tr.classList.toggle('is-neg', f.negativo);
+      tr.classList.toggle('is-excl', !f.cumple);
+      tr.cells[0].textContent = f.code;
+      const vida = tr.querySelector('[data-campo="vida"]');
+      if (vida) vida.placeholder = String(st.params.horizonte);
+    }
+  }
+
+  function pintarResultados() {
+    const C = res.carteras;
+    $('tb-result').innerHTML = res.filas.map(f => {
+      const chips = [];
+      if (!f.cumple) chips.push('<span class="chip">No cumple restricciones</span>');
+      if (f.negativo) chips.push('<span class="chip alert">VPN negativo</span>');
+      const tags = [['vpn', 'VPN'], ['pts', 'Pts'], ['tir', 'TIR']].filter(([k]) => C[k] && C[k].ids.includes(f.id)).map(([, t]) => `<span class="tag">${t}</span>`).join('');
+      const tirTxt = f.tir != null ? F(100 * f.tir, 1) + NBSP + '%' : '—';
+      return `<tr class="${f.negativo ? 'is-neg' : ''} ${f.cumple ? '' : 'is-excl'}">
+        <td class="code">${f.code}</td>
+        <td><div class="nm-cell"><span class="nm">${esc(nombreDe(f))}</span>${f.sede ? `<span class="sd">${esc(f.sede)}</span>` : ''}${chips.length ? `<span class="chips">${chips.join('')}</span>` : ''}</div></td>
+        <td class="n">${F(f.ahorro, 1)}</td>
+        <td class="n">${F(f.inversion, 1)}</td>
+        <td class="n${f.ben < 0 ? ' neg' : ''}">${F(f.ben, 1)}</td>
+        <td class="n">${f.retorno != null ? F(f.retorno, 2) : '—'}</td>
+        <td class="n${f.negativo ? ' neg' : ''}">${F(f.vpn, 1)}</td>
+        <td class="n">${tirTxt}</td>
+        <td class="n">${f.bc != null ? F(f.bc, 2) : '—'}</td>
+        <td class="n">${f.puntaje != null ? F(f.puntaje, 1) : '<span class="muted">Excluida</span>'}</td>
+        <td><span class="tags">${tags || '<span class="muted">—</span>'}</span></td>
+      </tr>`;
+    }).join('') || '<tr><td colspan="11" class="muted">Agregue al menos una medida.</td></tr>';
+    const s = res.sens;
+    $('result-nota').textContent = `Tarifa efectiva ${F(res.tarifaEf, 0)} COP/kWh${s ? ` (${F(s, 0, { sign: true })} % sobre ${F(res.params.tarifa, 0)})` : ''}, tasa ${F(res.params.tasa, 1)} %, horizonte ${res.params.horizonte} años. Puntaje entre las ${res.nElegibles} medidas que cumplen restricciones.`;
+  }
+
+  function pintarPesos() {
+    const pz = res.pesos;
+    const chip = $('pesos-suma');
+    chip.textContent = `Suma ${F(pz.suma, pz.suma % 1 ? 1 : 0)} %`;
+    chip.className = 'chip num ' + (!(pz.suma > 0) ? 'alert' : pz.normaliza ? 'warn' : 'good');
+    const av = $('pesos-aviso');
+    if (!(pz.suma > 0)) {
+      av.hidden = false; av.className = 'aviso alert';
+      av.textContent = 'Los pesos suman 0 %. Asigne al menos un peso para calcular el puntaje y la cartera multicriterio.';
+    } else if (pz.normaliza) {
+      const nom = { ahorro: 'ahorro', vpn: 'valor', fact: 'factibilidad', conf: 'confianza', cob: 'cobeneficios' };
+      const eq = Core.CLAVES_PESO.map(k => `${nom[k]} ${F(100 * (st.pesos[k] || 0) / pz.suma, 1)} %`).join(', ');
+      av.hidden = false; av.className = 'aviso';
+      av.textContent = `Los pesos suman ${F(pz.suma, 1)} %, no 100 %. La herramienta divide cada peso por la suma; el puntaje equivale a usar ${eq}.`;
+    } else av.hidden = true;
+  }
+
+  const RANKS = [
+    { k: 'vpn', t: 'Por VPN', u: 'MCOP · mayor a menor', v: f => F(f.vpn, 1), neg: f => f.vpn < 0 },
+    { k: 'tir', t: 'Por TIR', u: '% anual · mayor a menor', v: f => f.tir != null ? F(100 * f.tir, 1) + NBSP + '%' : '—', neg: f => f.tir != null && f.tir < res.r },
+    { k: 'ret', t: 'Por retorno simple', u: 'años · menor a mayor', v: f => f.retorno != null ? F(f.retorno, 2) : 'no recupera', neg: f => f.retorno == null },
+    { k: 'pts', t: 'Por puntaje multicriterio', u: '0–100 · mayor a menor', v: f => f.puntaje != null ? F(f.puntaje, 1) : '—', neg: () => false },
+  ];
+  function pintarRankings() {
+    const R = res.rankings;
+    $('ranks').innerHTML = RANKS.map(c => `<div class="rank-col"><header><h3>${c.t}</h3><span>${c.u}</span></header><ol>${R[c.k].map((id, i) => {
+      const f = filaDe(id);
+      return `<li class="rank-item" data-id="${esc(id)}" tabindex="0"><span class="pos">${i + 1}</span><span class="cd">${f.code}</span><span class="nm">${esc(nombreDe(f))}${f.sede ? `<small>${esc(f.sede)}</small>` : ''}</span><span class="val${c.neg(f) ? ' neg' : ''}">${c.v(f)}</span></li>`;
+    }).join('') || '<li class="rank-excl">Sin medidas elegibles</li>'}</ol></div>`).join('');
+    const prim = RANKS.map(c => R[c.k][0] ? `${c.t.replace('Por ', '').replace(' multicriterio', '')}: <b>${filaDe(R[c.k][0]).code}</b>` : null).filter(Boolean);
+    const iguales = RANKS.every(c => R[c.k].join() === R.vpn.join());
+    $('rank-lead').innerHTML = R.vpn.length > 1
+      ? `${iguales ? 'Los cuatro órdenes coinciden con estos datos.' : 'Los cuatro órdenes no coinciden.'} Primer lugar según cada criterio: ${prim.join(' · ')}.`
+      : 'Se necesitan al menos dos medidas elegibles para comparar órdenes.';
+    const ex = $('rank-excl');
+    if (res.excluidas.length) {
+      ex.hidden = false;
+      ex.textContent = 'Fuera de la priorización por no cumplir restricciones: ' + res.excluidas.map(id => { const f = filaDe(id); return `${f.code} ${nombreDe(f)}`; }).join('; ') + '.';
+    } else ex.hidden = true;
+  }
+  function resaltar(id, on) {
+    for (const li of $('ranks').querySelectorAll('.rank-item')) li.classList.toggle('hl', on && li.dataset.id === id);
+  }
+
+  function difChip(k, c) {
+    if (k === 'vpn') return '<span class="chip info">Referencia</span>';
+    if (c.dif == null) return '';
+    if (Math.abs(c.dif) < 0.05) return '<span class="chip good">Igual a la óptima</span>';
+    return `<span class="chip num ${c.dif < 0 ? 'alert' : 'info'}">${F(c.dif, 1, { sign: true })} MCOP frente a la óptima</span>`;
+  }
+  function pintarCartera(k) {
+    const body = $(`cart-${k}-body`);
+    const c = res.carteras[k];
+    const P = res.params;
+    if (!c) {
+      body.innerHTML = res.demasiadas
+        ? `<p class="aviso">Hay ${res.nElegibles} medidas elegibles y la enumeración completa admite hasta ${Core.MAX_ENUM} (2^${Core.MAX_ENUM} combinaciones). Quite medidas o marque alguna como no elegible para calcular esta cartera.</p>`
+        : '<p class="aviso alert">Sin pesos válidos no hay puntaje que maximizar. Revise la sección de pesos.</p>';
+      return;
+    }
+    const miembros = c.ids.length
+      ? `<ul class="members">${c.ids.map(id => { const f = filaDe(id); return `<li><span class="cd">${f.code}</span><span class="nm">${esc(nombreDe(f))}${f.sede ? `<small>${esc(f.sede)}</small>` : ''}</span><span class="val${f.vpn < 0 ? ' neg' : ''}">${F(f.vpn, 1)}</span></li>`; }).join('')}</ul>`
+      : '<p class="small ink2">Ninguna medida entra: ninguna combinación mejora el resultado dentro del presupuesto.</p>';
+    const uso = P.presupuesto > 0 ? Math.min(100, 100 * c.inversion / P.presupuesto) : 0;
+    const fin = c.final;
+    let extra = '';
+    if (c.interaccion) extra += `<p class="small ink2">Con ${F(c.interaccion, 1)} MWh/año de interacción. Suma aislada: ahorro ${F(c.aislado.ahorro, 1)} MWh/año, beneficio ${F(c.aislado.ben, 1)} MCOP/año, VPN ${F(c.aislado.vpn, 1)} MCOP.</p>`;
+    if (c.conNeg.length) extra += `<p class="aviso alert">Incluye ${c.conNeg.map(id => filaDe(id).code).join(', ')} con VPN negativo: el puntaje la favorece aunque destruye valor económico.</p>`;
+    if (k === 'tir' && c.traza.length) {
+      extra += `<div><p class="small ink2">Orden seguido:</p><ol class="traza">${c.traza.map(t => {
+        const f = filaDe(t.id);
+        const tirTxt = f.tirInf ? 'sin inversión' : f.tir != null ? F(100 * f.tir, 1) + NBSP + '%' : '—';
+        const est = t.estado === 'entra' ? '<span class="chip good">entra</span>'
+          : t.estado === 'no cabe' ? `<span class="chip warn">no cabe · quedaban ${F(t.queda, 1)}</span>`
+          : `<span class="chip">${t.estado}</span>`;
+        return `<li><span class="cd">${f.code}</span><span class="val">${tirTxt}</span>${est}</li>`;
+      }).join('')}</ol></div>`;
+    }
+    body.innerHTML = `${miembros}
+      <div class="vpn-row"><div><span class="lab">VPN total${c.interaccion ? ' con interacción' : ''}</span><span class="big num${fin.vpn < 0 ? ' neg' : ''}">${F(fin.vpn, 1)}</span><span class="unit">MCOP</span></div>${difChip(k, c)}</div>
+      <dl class="stats">
+        <div><dt>Inversión total</dt><dd>${F(c.inversion, 1)} <small>de ${F(P.presupuesto, 1)} MCOP</small></dd><div class="meter" aria-hidden="true"><i style="width:${uso.toFixed(1)}%"></i></div></div>
+        <div><dt>Ahorro total</dt><dd>${F(fin.ahorro, 1)} <small>MWh/año</small></dd></div>
+        <div><dt>Beneficio neto</dt><dd>${F(fin.ben, 1)} <small>MCOP/año</small></dd></div>
+        <div><dt>Retorno simple</dt><dd>${c.retorno != null ? F(c.retorno, 2) : '—'} <small>años</small></dd></div>
+        <div><dt>Puntaje total</dt><dd>${F(c.puntaje, 1)} <small>pts</small></dd></div>
+        <div><dt>Medidas</dt><dd>${c.n} <small>de ${res.nElegibles} elegibles</small></dd></div>
+      </dl>${extra}`;
+  }
+  function pintarCarteras() {
+    for (const k of ['vpn', 'pts', 'tir']) pintarCartera(k);
+    $('cartera-nota').textContent = `Presupuesto ${F(res.params.presupuesto, 1)} MCOP. Las medidas que no cumplen restricciones no entran en ninguna cartera.`;
+  }
+
+  function pintarSens() {
+    const s = res.sens;
+    const out = $('sens-out');
+    out.textContent = `${F(s, 0, { sign: true })} % · ${F(res.tarifaEf, 0)} COP/kWh`;
+    out.classList.toggle('is-moved', s !== 0);
+    $('sens').setAttribute('aria-valuetext', `${F(s, 0, { sign: true })} por ciento, tarifa efectiva ${F(res.tarifaEf, 0)} pesos por kilovatio hora`);
+    const C = res.carteras;
+    const cod = c => c && c.ids.length ? c.ids.map(id => filaDe(id).code).join(' + ') : 'ninguna';
+    const parts = [];
+    if (C.vpn) parts.push(`<span class="ss"><span>Mayor VPN</span><b class="num">${cod(C.vpn)} · ${F(C.vpn.final.vpn, 1)} MCOP</b></span>`);
+    parts.push(`<span class="ss"><span>Por TIR</span><b class="num">${cod(C.tir)} · ${F(C.tir.final.vpn, 1)}${C.tir.dif != null && Math.abs(C.tir.dif) >= 0.05 ? ` (${F(C.tir.dif, 1, { sign: true })})` : ''}</b></span>`);
+    const neg = res.negativos.map(id => filaDe(id));
+    parts.push(`<span class="ss"><span>VPN negativo</span>${neg.length ? neg.map(f => `<span class="chip alert num">${f.code} ${F(f.vpn, 1)}</span>`).join(' ') : '<b>ninguna medida</b>'}</span>`);
+    $('sens-sum').innerHTML = parts.join('');
+  }
+
+  /* ---------- gráficas (SVG propio) ---------- */
+  const NS = 'http://www.w3.org/2000/svg';
+  function svgEl(tag, attrs, parent, text) {
+    const e = document.createElementNS(NS, tag);
+    for (const k in attrs) e.setAttribute(k, attrs[k]);
+    if (text != null) e.textContent = text;
+    if (parent) parent.appendChild(e);
+    return e;
+  }
+  function claseMarca(f, opt) {
+    if (!f.cumple) return 'm-exc';
+    if (f.vpn < 0) return 'm-neg';
+    return opt.has(f.id) ? 'm-acc' : 'm-neu';
+  }
+  function estadoTxt(f, opt) {
+    if (!f.cumple) return 'No cumple restricciones';
+    if (f.vpn < 0) return 'VPN negativo';
+    return opt.has(f.id) ? 'En la cartera de mayor VPN' : 'Fuera de la cartera de mayor VPN';
+  }
+  function tip(box, lineas, x, y) {
+    let t = box.querySelector('.tip');
+    if (!t) { t = document.createElement('div'); t.className = 'tip'; box.appendChild(t); }
+    t.replaceChildren(...lineas.map((l, i) => { const e = document.createElement(i === 0 ? 'strong' : 'span'); e.textContent = l; return e; }));
+    t.hidden = false;
+    const bw = box.clientWidth, tw = t.offsetWidth, th = t.offsetHeight;
+    let left = Math.min(Math.max(0, x + 12), Math.max(0, bw - tw));
+    let top = y - th - 10;
+    if (top < 0) top = y + 14;
+    t.style.left = left + 'px';
+    t.style.top = top + 'px';
+  }
+  function tipOff(box) { const t = box.querySelector('.tip'); if (t) t.hidden = true; }
+  function enlazarTip(box, g, lineas, punto) {
+    const show = ev => {
+      const b = box.getBoundingClientRect();
+      const p = ev && ev.clientX != null ? { x: ev.clientX - b.left, y: ev.clientY - b.top } : punto();
+      tip(box, lineas, p.x, p.y);
+    };
+    g.addEventListener('pointermove', show);
+    g.addEventListener('pointerenter', show);
+    g.addEventListener('pointerleave', () => tipOff(box));
+    g.addEventListener('focus', () => show(null));
+    g.addEventListener('blur', () => tipOff(box));
+  }
+  function lineasTip(f, opt) {
+    return [`VPN ${F(f.vpn, 1)} MCOP`, `${f.code} · ${nombreDe(f)}${f.sede ? ' · ' + f.sede : ''}`,
+      `Inversión ${F(f.inversion, 1)} MCOP · TIR ${f.tir != null ? F(100 * f.tir, 1) + ' %' : '—'}`, estadoTxt(f, opt)];
+  }
+  // Recorta el último tspan con «…» hasta que el texto completo termine antes de maxX.
+  function recortar(t, maxX) {
+    const fin = () => { const b = t.getBBox(); return b.x + b.width; };
+    if (fin() <= maxX) return;
+    const full = t.lastChild.textContent;
+    let lo = 0, hi = full.length;
+    while (lo < hi) {
+      const mid = Math.ceil((lo + hi) / 2);
+      t.lastChild.textContent = full.slice(0, mid) + '…';
+      if (fin() <= maxX) lo = mid; else hi = mid - 1;
+    }
+    t.lastChild.textContent = full.slice(0, lo).trimEnd() + '…';
+  }
+  function barra(x0, x1, y, h, r) {
+    const w = Math.abs(x1 - x0);
+    r = Math.min(r, w / 2, h / 2);
+    if (x1 >= x0) return `M${x0},${y}H${x1 - r}Q${x1},${y} ${x1},${y + r}V${y + h - r}Q${x1},${y + h} ${x1 - r},${y + h}H${x0}Z`;
+    return `M${x0},${y}H${x1 + r}Q${x1},${y} ${x1},${y + r}V${y + h - r}Q${x1},${y + h} ${x1 + r},${y + h}H${x0}Z`;
+  }
+
+  function graficaVPN() {
+    const box = $('ch-vpn');
+    box.replaceChildren();
+    const filas = [...res.filas].sort((a, b) => b.vpn - a.vpn);
+    if (!filas.length) { box.textContent = 'Sin medidas.'; return; }
+    const W = Math.max(260, Math.floor(box.clientWidth));
+    const opt = new Set(res.carteras.vpn ? res.carteras.vpn.ids : []);
+    const rowH = 46, top = 4, axisH = 26;
+    const H = top + filas.length * rowH + axisH;
+    const vals = filas.map(f => f.vpn);
+    const mn = Math.min(0, ...vals), mx = Math.max(0, ...vals);
+    const tk = Core.niceTicks(mn, mx, W < 480 ? 4 : 6);
+    const lw = Math.max(...vals.map(v => F(v, 1).length)) * 7.4 + 10;
+    const x0 = 2 + (mn < 0 ? lw : 0), x1 = W - 2 - (mx > 0 ? lw : 0);
+    const sx = v => x0 + (v - tk.lo) / (tk.hi - tk.lo) * (x1 - x0);
+    const svg = svgEl('svg', { width: W, height: H, viewBox: `0 0 ${W} ${H}` }, box);
+    const yEnd = top + filas.length * rowH - 6;
+    for (const t of tk.ticks) {
+      const x = sx(t);
+      // Rejilla por tramos, a la altura de las barras, para que no cruce los rótulos.
+      for (let i = 0; i < filas.length; i++) svgEl('line', { x1: x, x2: x, y1: top + i * rowH + 17, y2: top + i * rowH + 41, class: 'g-line' }, svg);
+      const lab = svgEl('text', { x, y: H - 8, 'text-anchor': 'middle' }, svg, F(t, tk.step % 1 ? 1 : 0));
+      const wl = lab.getComputedTextLength();
+      if (x - wl / 2 < 0) { lab.setAttribute('text-anchor', 'start'); lab.setAttribute('x', 0); }
+      else if (x + wl / 2 > W) { lab.setAttribute('text-anchor', 'end'); lab.setAttribute('x', W); }
+    }
+    // La línea del cero se dibuja por tramos, solo a la altura de las barras, para no cruzar los rótulos.
+    filas.forEach((f, i) => { const y = top + i * rowH; svgEl('line', { x1: sx(0), x2: sx(0), y1: y + 17, y2: y + 41, class: 'zero' }, svg); });
+    filas.forEach((f, i) => {
+      const y = top + i * rowH;
+      const g = svgEl('g', { class: 'mark', tabindex: 0, role: 'img', 'aria-label': `${f.code} ${nombreDe(f)}: VPN ${F(f.vpn, 1)} millones de pesos. ${estadoTxt(f, opt)}` }, svg);
+      svgEl('rect', { x: 0, y, width: W, height: rowH, class: 'hit' }, g);
+      const t = svgEl('text', { x: 2, y: y + 13 }, g);
+      svgEl('tspan', { class: 't-code' }, t, f.code);
+      svgEl('tspan', { class: 't-name', dx: 6 }, t, nombreDe(f) + (f.sede ? ' · ' + f.sede : '') + (f.cumple ? '' : ' · no cumple'));
+      recortar(t, W - 2);
+      const z = sx(0), xv = sx(f.vpn);
+      if (Math.abs(xv - z) >= 0.5) svgEl('path', { d: barra(z, xv, y + 20, 18, 4), class: 'shape ' + claseMarca(f, opt) }, g);
+      const neg = f.vpn < 0;
+      svgEl('text', { x: neg ? xv - 6 : xv + 6, y: y + 33, 'text-anchor': neg ? 'end' : 'start', class: 't-ink' }, g, F(f.vpn, 1));
+      enlazarTip(box, g, lineasTip(f, opt), () => ({ x: xv, y: y + 20 }));
+    });
+  }
+
+  function graficaDisp() {
+    const box = $('ch-disp');
+    box.replaceChildren();
+    const filas = res.filas;
+    if (!filas.length) { box.textContent = 'Sin medidas.'; return; }
+    const W = Math.max(260, Math.floor(box.clientWidth));
+    const H = Math.round(Math.min(360, Math.max(250, W * 0.62)));
+    const m = { l: 50, r: 14, t: 30, b: 42 };
+    const xs = filas.map(f => f.inversion), ys = filas.map(f => f.vpn);
+    const tx = Core.niceTicks(0, Math.max(1, res.params.presupuesto, ...xs), W < 480 ? 4 : 6);
+    const ty = Core.niceTicks(Math.min(0, ...ys), Math.max(0, ...ys), 5);
+    const sx = v => m.l + (v - tx.lo) / (tx.hi - tx.lo) * (W - m.l - m.r);
+    const sy = v => H - m.b - (v - ty.lo) / (ty.hi - ty.lo) * (H - m.t - m.b);
+    const svg = svgEl('svg', { width: W, height: H, viewBox: `0 0 ${W} ${H}` }, box);
+    const opt = new Set(res.carteras.vpn ? res.carteras.vpn.ids : []);
+    for (const t of ty.ticks) {
+      svgEl('line', { x1: m.l, x2: W - m.r, y1: sy(t), y2: sy(t), class: 'g-line' }, svg);
+      svgEl('text', { x: m.l - 8, y: sy(t) + 4, 'text-anchor': 'end' }, svg, F(t, ty.step % 1 ? 1 : 0));
+    }
+    for (const t of tx.ticks) {
+      svgEl('line', { x1: sx(t), x2: sx(t), y1: m.t, y2: H - m.b, class: 'g-line' }, svg);
+      const lab = svgEl('text', { x: sx(t), y: H - m.b + 18, 'text-anchor': 'middle' }, svg, F(t, tx.step % 1 ? 1 : 0));
+      if (sx(t) + lab.getComputedTextLength() / 2 > W) { lab.setAttribute('text-anchor', 'end'); lab.setAttribute('x', W); }
+    }
+    svgEl('text', { x: 0, y: 14, 'text-anchor': 'start', class: 't-ink' }, svg, 'VPN (MCOP)');
+    svgEl('text', { x: W - m.r, y: H - 4, 'text-anchor': 'end', class: 't-ink' }, svg, 'Inversión (MCOP)');
+    svgEl('line', { x1: m.l, x2: W - m.r, y1: sy(0), y2: sy(0), class: 'zero' }, svg);
+    const xb = sx(res.params.presupuesto);
+    svgEl('line', { x1: xb, x2: xb, y1: m.t, y2: H - m.b, class: 'ref' }, svg);
+    const pl = svgEl('text', { x: xb, y: m.t - 8, 'text-anchor': 'middle' }, svg, `Presupuesto ${F(res.params.presupuesto, 0)}`);
+    const pw = pl.getComputedTextLength();
+    if (xb + pw / 2 > W) { pl.setAttribute('text-anchor', 'end'); pl.setAttribute('x', W); }
+    else if (xb - pw / 2 < 70) { pl.setAttribute('text-anchor', 'start'); pl.setAttribute('x', Math.max(xb - 4, 0)); }
+    const cajas = [{ x: 0, y: 0, w: 90, h: 18 }, { x: pl.getBBox().x, y: pl.getBBox().y, w: pw, h: 16 }, { x: xb - 2, y: m.t, w: 4, h: H - m.t - m.b }];
+    const pts = filas.map(f => ({ f, x: sx(f.inversion), y: sy(f.vpn) }));
+    for (const p of pts) cajas.push({ x: p.x - 7, y: p.y - 7, w: 14, h: 14 });
+    const choca = b => b.x < 0 || b.x + b.w > W || b.y < 0 || b.y + b.h > H - m.b + 2 || cajas.some(c => b.x < c.x + c.w && b.x + b.w > c.x && b.y < c.y + c.h && b.y + b.h > c.y);
+    // puntos fuera de la cartera primero, para que los resaltados queden encima
+    pts.sort((a, b) => (opt.has(a.f.id) ? 1 : 0) - (opt.has(b.f.id) ? 1 : 0));
+    for (const p of pts) {
+      const f = p.f;
+      const g = svgEl('g', { class: 'mark', tabindex: 0, role: 'img', 'aria-label': `${f.code} ${nombreDe(f)}: inversión ${F(f.inversion, 1)}, VPN ${F(f.vpn, 1)} millones de pesos. ${estadoTxt(f, opt)}` }, svg);
+      svgEl('circle', { cx: p.x, cy: p.y, r: 14, class: 'hit' }, g);
+      svgEl('circle', { cx: p.x, cy: p.y, r: 6, class: 'shape ring ' + claseMarca(f, opt) }, g);
+      const lw = f.code.length * 7.6;
+      const cand = [
+        { x: p.x + 10, y: p.y - 7, a: 'start' }, { x: p.x - 10 - lw, y: p.y - 7, a: 'end' },
+        { x: p.x - lw / 2, y: p.y - 26, a: 'middle' }, { x: p.x - lw / 2, y: p.y + 10, a: 'middle' },
+      ];
+      let pos = cand.find(c => !choca({ x: c.x, y: c.y, w: lw, h: 15 })) || cand[0];
+      cajas.push({ x: pos.x, y: pos.y, w: lw, h: 15 });
+      const tx0 = pos.a === 'start' ? pos.x : pos.a === 'end' ? pos.x + lw : pos.x + lw / 2;
+      svgEl('text', { x: tx0, y: pos.y + 12, 'text-anchor': pos.a, class: 't-code' }, g, f.code);
+      enlazarTip(box, g, lineasTip(f, opt), () => ({ x: p.x, y: p.y }));
+    }
+  }
+
+  let anchoVPN = 0, anchoDisp = 0;
+  function pintarGraficas() {
+    anchoVPN = $('ch-vpn').clientWidth; anchoDisp = $('ch-disp').clientWidth;
+    graficaVPN(); graficaDisp();
+  }
+
+  /* ---------- ciclo principal ---------- */
+  function recalcular() {
+    res = Core.calcular(st);
+    pintarFilasEntrada();
+    pintarResultados();
+    pintarPesos();
+    pintarRankings();
+    pintarCarteras();
+    pintarSens();
+    pintarGraficas();
+    const chip = $('chip-datos');
+    chip.textContent = st.ejemplo ? 'Datos ilustrativos · tabla 13 del marco 05 y ejemplo del módulo 2' : 'Datos editados en este navegador';
+    chip.className = 'chip chip-wrap' + (st.ejemplo ? ' warn' : '');
+    guardar();
+  }
+  function pintarTodo() { pintarCampos(); pintarTablaMedidas(); recalcular(); }
+
+  function mostrarDeshacer(msg) {
+    $('undo-msg').textContent = msg;
+    $('undo-bar').hidden = false;
+  }
+
+  /* ---------- eventos ---------- */
+  const tb = $('tb-medidas');
+  tb.addEventListener('input', alEditarMedida);
+  tb.addEventListener('change', alEditarMedida);
+  tb.addEventListener('focusout', alSalirMedida);
+  tb.addEventListener('click', e => {
+    const b = e.target.closest('[data-quitar]');
+    if (!b) return;
+    const i = st.medidas.findIndex(m => m.id === b.dataset.quitar);
+    if (i < 0) return;
+    snapshot = JSON.stringify(st);
+    const [q] = st.medidas.splice(i, 1);
+    st.ejemplo = false;
+    pintarTablaMedidas(); recalcular();
+    mostrarDeshacer(`Se quitó «${codigoDe(q, i)} ${q.nombre || 'Medida sin nombre'}».`);
+    const sig = tb.querySelectorAll('[data-quitar]')[Math.min(i, st.medidas.length - 1)];
+    (sig || $('btn-add')).focus();
+  });
+  $('btn-add').addEventListener('click', () => {
+    const id = 'n' + (st.sig++);
+    st.medidas.push({ id, nombre: 'Nueva medida', sede: '', ahorro: 0, inversion: 0, costos: 0, vida: null, cumple: true, fact: 3, conf: 3, cob: 3 });
+    st.ejemplo = false;
+    pintarTablaMedidas(); recalcular();
+    const el = $(`m-${id}-nombre`); el.focus(); el.select();
+  });
+  $('btn-restore').addEventListener('click', () => {
+    snapshot = JSON.stringify(st);
+    st = Core.estadoEjemplo();
+    pintarTodo();
+    mostrarDeshacer('Se restauró el ejemplo con sus parámetros y pesos.');
+  });
+  $('btn-undo').addEventListener('click', () => {
+    if (!snapshot) return;
+    const s = Core.sanear(JSON.parse(snapshot));
+    if (s) { st = s; pintarTodo(); }
+    snapshot = null;
+    $('undo-bar').hidden = true;
+  });
+  for (const k in PARAMS) {
+    const sp = PARAMS[k];
+    enlazarNumero($(sp.id), () => st.params[k], v => { st.params[k] = v; }, sp.ok, sp.int, false);
+  }
+  for (const k of Core.CLAVES_PESO) enlazarNumero($('w-' + k), () => st.pesos[k], v => { st.pesos[k] = v; }, v => v >= 0 && v <= 100, false, true);
+  for (const k of ['vpn', 'pts', 'tir']) enlazarNumero($('int-' + k), () => st.inter[k], v => { st.inter[k] = v; }, v => v >= 0, false, true);
+  $('btn-pesos').addEventListener('click', () => {
+    st.pesos = { ...Core.PESOS_DEF };
+    for (const k of Core.CLAVES_PESO) { $('w-' + k).value = Core.fmtCampo(st.pesos[k]); $('w-' + k).removeAttribute('aria-invalid'); }
+    recalcular();
+  });
+  $('sens').addEventListener('input', e => { st.sens = Number(e.target.value); recalcular(); });
+  $('btn-sens0').addEventListener('click', () => { st.sens = 0; $('sens').value = '0'; recalcular(); });
+  $('lnk-metodo').addEventListener('click', () => { $('metodo').open = true; });
+
+  const ranks = $('ranks');
+  ranks.addEventListener('pointerover', e => { const li = e.target.closest('.rank-item'); if (li) resaltar(li.dataset.id, true); });
+  ranks.addEventListener('pointerleave', () => resaltar(null, false));
+  ranks.addEventListener('focusin', e => { const li = e.target.closest('.rank-item'); if (li) resaltar(li.dataset.id, true); });
+  ranks.addEventListener('focusout', () => resaltar(null, false));
+
+  $('btn-copy').addEventListener('click', () => {
+    const tsv = Core.tablaTSV(res);
+    const msg = $('copy-msg'), ta = $('copy-fallback');
+    const n = res.filas.length;
+    const listo = () => { msg.textContent = `Tabla copiada: ${n} ${n === 1 ? 'medida' : 'medidas'} con sus indicadores. Péguela en una hoja de cálculo.`; ta.hidden = true; };
+    const respaldo = () => {
+      ta.value = tsv; ta.hidden = false; ta.focus(); ta.select();
+      let ok = false;
+      try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
+      if (ok) listo();
+      else msg.textContent = 'El navegador no permitió copiar automáticamente. El texto quedó seleccionado abajo: cópielo con Ctrl+C (Cmd+C en Mac).';
+    };
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(tsv).then(listo, respaldo);
+      else respaldo();
+    } catch (e) { respaldo(); }
+  });
+
+  if ('ResizeObserver' in window) {
+    let raf = 0;
+    const ro = new ResizeObserver(() => {
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => {
+        if (!res) return;
+        if ($('ch-vpn').clientWidth !== anchoVPN || $('ch-disp').clientWidth !== anchoDisp) pintarGraficas();
+      });
+    });
+    ro.observe($('ch-vpn')); ro.observe($('ch-disp'));
+  }
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { if (res) pintarGraficas(); });
+
+  pintarTodo();
+})();
+</script>
